@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Django stuff:
+*.log
+*.pot
+*.pyc
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+.DS_Store
+
+# Pytest / coverage
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.cache
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# MacOS
+.DS_Store
+
+# Environments
+.env
+.env.*
+
+# Editor temp files
+*.swp
+*~
+
+# Logs
+logs/
+*.log
+
+# Django migrations (يمكن استبعاد هذا إذا تريد الاحتفاظ بها في git)
+*/migrations/*.py[cod]
+!*/migrations/__init__.py
+
+# Pycharm
+.idea/
