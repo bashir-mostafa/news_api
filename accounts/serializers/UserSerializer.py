@@ -8,15 +8,13 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "username",
             "email",
-            "first_name",
-            "last_name",
             "full_name",
             "role",
             "password",
             "created_at",
             "updated_at",
             "created_by",
-            "updated_by",
+            
         )
         read_only_fields = ("id", "created_at", "updated_at", "created_by", "updated_by")
         extra_kwargs = {
@@ -24,9 +22,14 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
+    
+
+        password = validated_data.pop('password', "")
         user = CustomUser.objects.create_user(**validated_data, password=password)
-        if password:
+        print(password) 
+        if not password:
+            raise serializers.ValidationError({"error": "Password is required."})
+        else:
             user.set_password(password)
             user.save()
         return user

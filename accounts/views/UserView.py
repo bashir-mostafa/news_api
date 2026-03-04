@@ -1,5 +1,5 @@
 from rest_framework import status, generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
@@ -13,9 +13,9 @@ from ..pagination import CompactPagination, KoreanStylePagination, PageNumberPag
 # ============ LIST & CREATE ============
 class UserListCreateAPIView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.filter(deleted_at__isnull=True)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = ()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = UserFilter
+    filterset_class = UserFilter.UserFilter
     pagination_class = CompactPagination
     search_fields = ['username', 'email', 'full_name']
     ordering_fields = ['created_at', 'username', 'role']
