@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
 # ===================================================================
-
 class CustomUser(AbstractUser):
     class Roles(models.TextChoices):
         ADMIN = 'admin', 'مدير',
@@ -45,7 +43,6 @@ class CustomUser(AbstractUser):
     deleted_at = models.DateTimeField(
         null=True,
         blank=True,
-        related_name="users_deleted",
         help_text="تاريخ الحذف"
     )
 
