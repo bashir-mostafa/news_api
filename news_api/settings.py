@@ -33,7 +33,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -137,21 +137,17 @@ REST_FRAMEWORK = {
 
 # Simple JWT
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
-    # Auth
     "AUTH_HEADER_TYPES": ("Bearer",),
-    # Auth Cookie
     "AUTH_COOKIE_ACCESS": "access_token",
     "AUTH_COOKIE_REFRESH": "refresh_token",
-    # ".example.com" or None for standard domain cookie
     "AUTH_COOKIE_DOMAIN": None,
-    # Whether the auth cookies should be secure (https:// only).
     "AUTH_COOKIE_SECURE": False,
     "AUTH_COOKIE_HTTP_ONLY": True,
-    # The flag restricting cookie leaks on cross-site requests. 'Lax', 'Strict' or None to disable the flag.
     "AUTH_COOKIE_SAMESITE": "Lax",
     "AUTH_COOKIE_REFRESH_PATH": "/accounts/auth/",
     "AUTH_COOKIE_USE_CSRF": True,
 }
 AUTH_USER_MODEL = 'accounts.CustomUser'
+

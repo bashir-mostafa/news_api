@@ -28,7 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         user = CustomUser.objects.create_user(**validated_data, password=password)
         print(password) 
         if not password:
-            raise serializers.ValidationError({"error": "Password is required."})
+            raise serializers.ValidationError({"detail": "Password is required."})
         else:
             user.set_password(password)
             user.save()

@@ -25,7 +25,6 @@ class LogoutAPIView(APIView):
 
         response = Response({}, status=status.HTTP_200_OK)
 
-        # Delete jwt cookies
         delete_token_cookies(response)
 
         return response

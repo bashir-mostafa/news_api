@@ -24,9 +24,9 @@ class LoginAPIView(APIView):
         user = authenticate(request, username=username, password=password)
 
         if not user:
-            raise AuthenticationFailed("Invalid credentials")
+            raise AuthenticationFailed("Invalid username or password")
 
-        response = Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+        response = Response({"detail": "Login successful"}, status=status.HTTP_200_OK)
 
         # Set auth cookies
         refresh = RefreshToken.for_user(user)
