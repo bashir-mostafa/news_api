@@ -21,7 +21,11 @@ class LoginAPIView(APIView):
         if not serializer.is_valid():
             errors = serializer.errors
             
-            if 'password' in errors:
+            if 'username' and 'password' in errors:
+                return Response({
+                    "message": "the username and password are required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            elif 'password' in errors:
                 return Response({
                     "message": "the password is required"
                 }, status=status.HTTP_400_BAD_REQUEST)

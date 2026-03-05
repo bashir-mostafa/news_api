@@ -1,3 +1,5 @@
+from rest_framework import serializers 
+
 from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -12,8 +14,9 @@ from ..pagination import CompactPagination, KoreanStylePagination, PageNumberPag
 
 # ============ LIST & CREATE ============
 class UserListCreateAPIView(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.filter(deleted_at__isnull=True)
-    permission_classes = ()
+    queryset = CustomUser.objects.all()
+    
+    permission_classes = (IsAuthenticated, IsAdminUser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = UserFilter.UserFilter
     pagination_class = CompactPagination
@@ -28,7 +31,22 @@ class UserListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            
+            return Response({
+                "message": "User created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except serializers.ValidationError as e:
+            return Response({
+                "message": e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class UserRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):

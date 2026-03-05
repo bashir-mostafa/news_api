@@ -1,94 +1,99 @@
 from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
 from ..models import CustomUser
-from rest_framework.exceptions import ValidationError
-import re
 
 class UserSerializer(serializers.ModelSerializer):
-    password2 = serializers.CharField(write_only=True, required=False)
-    
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        help_text="كلمة المرور"
+    )
+    created_by_username = serializers.StringRelatedField(
+        source='created_by',
+        read_only=True
+    )
+
     class Meta:
         model = CustomUser
-        fields = (
-            "id",
-            "username",
-            "email",
-            "full_name",
-            "role",
-            "password",
-            "password2",
-            "created_at",
-            "updated_at",
-            "created_by",
-        )
-        read_only_fields = ("id", "created_at", "updated_at", "created_by", "updated_by")
+        fields = [
+            'id', 'username', 'email', 'password', 'full_name', 'role',
+            'is_active', 'created_at', 'created_by', 'created_by_username'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by', 'created_by_username']
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False},
+            'username': {'required': True},
+            'email': {'required': True},
+            'full_name': {'required': True}
+            
         }
-    
-    # ========== التحقق من الحقول ==========
-    
+
     def validate_username(self, value):
-        """التحقق من اسم المستخدم"""
-        if not value:
-            raise ValidationError({"detail": "اسم المستخدم مطلوب"})
         
-        if len(value) < 3:
-            raise ValidationError({"detail": "اسم المستخدم يجب أن يكون 3 أحرف على الأقل"})
+        if not value or value.strip() == '':
+            raise serializers.ValidationError("the username is required")
         
-        # للمستخدم الجديد فقط
-        if not self.instance and CustomUser.objects.filter(username=value).exists():
-            raise ValidationError({"detail": "اسم المستخدم موجود بالفعل"})
+        if self.instance and self.instance.username == value:
+            return value
+        
+        if CustomUser.objects.filter(username=value).exists():
+            raise serializers.ValidationError("the username is already exists")
         
         return value
-    
+
     def validate_email(self, value):
-        """التحقق من البريد الإلكتروني"""
-        if not value:
-            raise ValidationError({"detail": "البريد الإلكتروني مطلوب"})
+        """
+        التحقق من البريد الإلكتروني
+        """
+        if not value or value.strip() == '':
+            raise serializers.ValidationError("the email is required")
         
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, value):
-            raise ValidationError({"detail": "البريد الإلكتروني غير صحيح"})
+        if self.instance and self.instance.email == value:
+            return value
         
-        # للمستخدم الجديد فقط
-        if not self.instance and CustomUser.objects.filter(email=value).exists():
-            raise ValidationError({"detail": "البريد الإلكتروني مستخدم بالفعل"})
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("the email is already exists")
         
         return value
-    
+
     def validate_password(self, value):
-        """التحقق من كلمة المرور"""
-        if value and len(value) < 8:
-            raise ValidationError({"detail": "كلمة المرور يجب أن تكون 8 أحرف على الأقل"})
+        """
+        التحقق من كلمة المرور
+        """
+        if not value:
+            raise serializers.ValidationError("the password is required")
+        
+        if len(value) < 8:
+            raise serializers.ValidationError("the password must be at least 8 characters long")
+        
         return value
-    
-    # ========== التحقق العام ==========
-    
-    def validate(self, attrs):
-        """التحقق من العلاقات بين الحقول"""
-        password = attrs.get('password')
-        password2 = attrs.pop('password2', None)
-        
-        # تحقق تطابق كلمة المرور
-        if password and password2 and password != password2:
-            raise ValidationError({"detail": "كلمة المرور غير متطابقة"})
-        
-        return attrs
-    
-    # ========== إنشاء/تحديث ==========
-    
+
+    def validate_full_name(self, value):
+        """
+        التحقق من الاسم الكامل (اختياري)
+        """
+        if value and len(value) < 3:
+            raise serializers.ValidationError("the full name must be at least 3 characters long")
+        return value
+
+    def validate(self, data):
+        """
+        تحقق إضافي على مستوى الكائن
+        """
+        if self.instance is None and 'password' and 'username' and 'email' not in data:
+            raise serializers.ValidationError("كلمة المرور مطلوبة عند إنشاء مستخدم جديد")
+        return data
+
     def create(self, validated_data):
-        """إنشاء مستخدم جديد"""
-        password = validated_data.pop('password', None)
-        
-        if not password:
-            raise ValidationError({"message": "the password is required"})
-        
-        user = CustomUser.objects.create_user(**validated_data, password=password)
+      
+        password = validated_data.pop('password')
+        user = CustomUser(**validated_data)
+        user.set_password(password)  
+        user.save()
         return user
-    
+
     def update(self, instance, validated_data):
-        """تحديث مستخدم"""
+       
         password = validated_data.pop('password', None)
         
         for attr, value in validated_data.items():
@@ -102,13 +107,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserListSerializer(serializers.ModelSerializer):
+
+    created_by_username = serializers.StringRelatedField(source='created_by', read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
     class Meta:
         model = CustomUser
-        fields = (
-            "id",
-            "username",
-            "email",
-            "full_name",
-            "role",
-            "created_at",
-        )
+        fields = [
+            'id', 'username', 'email', 'full_name', 'role', 'role_display',
+            'is_active', 'created_at', 'created_by_username'
+        ]
+        read_only_fields = fields

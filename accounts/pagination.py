@@ -54,5 +54,5 @@ class CompactPagination(PageNumberPagination):
             'total_pages': self.page.paginator.num_pages,
             'total': self.page.paginator.count,
             'page_size': self.get_page_size(self.request),
-            'results': data
+            'data': data
         })
