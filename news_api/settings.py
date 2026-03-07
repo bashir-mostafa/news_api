@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "accounts.apps.AccountsConfig",
+    "content.apps.ContentConfig",
+
 ]
 
 MIDDLEWARE = [
