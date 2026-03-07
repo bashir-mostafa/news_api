@@ -60,6 +60,61 @@ class UserRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
         instance.save()
+    
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            
+            return Response({
+                "message": "User retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "message": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    def update(self, request, *args, **kwargs):
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            
+            return Response({
+                "message": "User updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except serializers.ValidationError as e:
+            return Response({
+                "message": e.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            
+            return Response({
+                "message": "User deleted successfully"
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============ PROFILE ============
@@ -80,85 +135,123 @@ class UserBulkDeleteAPIView(APIView):
 
     def delete(self, request):
         user_ids = request.data.get('user_ids', [])
+        
         if not user_ids:
-            return Response(
-                {"error": "Please provide user_ids"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({
+                "message": "Please provide user_ids"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not isinstance(user_ids, list):
+            return Response({
+                "message": "user_ids must be a list"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         if request.user.id in user_ids:
-            return Response(
-                {"error": "You cannot delete yourself"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        # soft delete للمستخدمين
-        CustomUser.objects.filter(id__in=user_ids, deleted_at__isnull=True).update(
-            deleted_at=timezone.now()
+            return Response({
+                "message": "You cannot delete yourself"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        deleted_count = CustomUser.objects.filter(
+            id__in=user_ids, 
+            deleted_at__isnull=True
+        ).update(
+            deleted_at=timezone.now(),
+            updated_by=request.user  
         )
         
-        return Response(
-            {"message": f"{len(user_ids)} users deleted successfully"},
-            status=status.HTTP_204_NO_CONTENT
-        )
-
+        if deleted_count == 0:
+            return Response({
+                "message": "No users were deleted. They may already be deleted or not exist."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({
+            "message": f"{deleted_count} out of {len(user_ids)} users deleted successfully"
+        }, status=status.HTTP_200_OK)  
 
 # ============ DEACTIVATE/ACTIVATE ============
-class UserActivateDeactivateAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+# class UserActivateDeactivateAPIView(APIView):
+#     permission_classes = (IsAuthenticated,)
 
-    def post(self, request, user_id):
-        try:
-            user = CustomUser.objects.get(id=user_id, deleted_at__isnull=True)
-            action = request.data.get('action')
+#     def post(self, request, user_id):
+#         if request.user.id == user_id:
+#             return Response({
+#                 "message": "You cannot activate/deactivate yourself"
+#             }, status=status.HTTP_400_BAD_REQUEST)
+        
+#         try:
+#             user = CustomUser.objects.get(id=user_id, deleted_at__isnull=True)
+#             action = request.data.get('action')
             
-            if action == 'deactivate':
-                user.is_active = False
-                message = "User deactivated successfully"
-            elif action == 'activate':
-                user.is_active = True
-                message = "User activated successfully"
-            else:
-                return Response(
-                    {"error": "Invalid action. Use 'activate' or 'deactivate'"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+#             if not action:
+#                 return Response({
+#                     "message": "action is required (activate or deactivate)"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            user.updated_by = request.user
-            user.save()
+#             if action == 'deactivate':
+#                 if not user.is_active:
+#                     return Response({
+#                         "message": "User is already deactivated"
+#                     }, status=status.HTTP_400_BAD_REQUEST)
+                
+#                 user.is_active = False
+#                 message = "User deactivated successfully"
+                
+#             elif action == 'activate':
+#                 if user.is_active:
+#                     return Response({
+#                         "message": "User is already activated"
+#                     }, status=status.HTTP_400_BAD_REQUEST)
+                
+#                 user.is_active = True
+#                 message = "User activated successfully"
+                
+#             else:
+#                 return Response({
+#                     "message": "Invalid action. Use 'activate' or 'deactivate'"
+#                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({"message": message}, status=status.HTTP_200_OK)
+#             user.updated_by = request.user
+#             user.save()
             
-        except CustomUser.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+#             return Response({
+#                 "message": message,
+#                 "data": {
+#                     "id": user.id,
+#                     "username": user.username,
+#                     "is_active": user.is_active
+#                 }
+#             }, status=status.HTTP_200_OK)
+            
+#         except CustomUser.DoesNotExist:
+#             return Response({
+#                 "message": "User not found"
+#             }, status=status.HTTP_404_NOT_FOUND)
 
+# # ============ RESTORE DELETED ============
+# class UserRestoreAPIView(APIView):
+#     permission_classes = (IsAuthenticated,)
 
-# ============ RESTORE DELETED ============
-class UserRestoreAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request, user_id):
-        try:
-            user = CustomUser.objects.get(id=user_id)
+#     def post(self, request, user_id):
+#         try:
+#             user = CustomUser.objects.get(id=user_id)
             
-            if user.deleted_at is None:
-                return Response(
-                    {"error": "User is not deleted"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+#             if user.deleted_at is None:
+#                 return Response(
+#                     {"error": "User is not deleted"}, 
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
             
-            user.deleted_at = None
-            user.updated_by = request.user
-            user.save()
+#             user.deleted_at = None
+#             user.updated_by = request.user
+#             user.save()
             
-            return Response(
-                {"message": "User restored successfully"}, 
-                status=status.HTTP_200_OK
-            )
+#             return Response(
+#                 {"message": "User restored successfully"}, 
+#                 status=status.HTTP_200_OK
+#             )
             
-        except CustomUser.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+#         except CustomUser.DoesNotExist:
+#             return Response(
+#                 {"error": "User not found"}, 
+#                 status=status.HTTP_404_NOT_FOUND
+#             )

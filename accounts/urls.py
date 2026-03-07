@@ -21,11 +21,11 @@ urlpatterns = [
     
     # ============ عمليات إضافية ============
     # bulk delete (DELETE)
-    path('users/bulk-delete/', user_view.UserBulkDeleteAPIView.as_view(), name='user-bulk-delete'),
+    path('users/bulk-deleted/', user_view.UserBulkDeleteAPIView.as_view(), name='user-bulk-delete'),
     
-    # activate/deactivate (POST)
-    path('users/<int:user_id>/toggle-status/', user_view.UserActivateDeactivateAPIView.as_view(), name='user-toggle-status'),
+    # # activate/deactivate (POST)
+    # path('users/<int:user_id>/toggle-status/', user_view.UserActivateDeactivateAPIView.as_view(), name='user-toggle-status'),
     
-    # restore deleted user (POST)
-    path('users/<int:user_id>/restore/', user_view.UserRestoreAPIView.as_view(), name='user-restore'),
+    # # restore deleted user (POST)
+    # path('users/<int:user_id>/restore/', user_view.UserRestoreAPIView.as_view(), name='user-restore'),
 ]
