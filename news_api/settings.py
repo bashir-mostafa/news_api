@@ -1,6 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
-
+import os 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -149,4 +149,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_USE_CSRF": True,
 }
 AUTH_USER_MODEL = 'accounts.CustomUser'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

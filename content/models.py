@@ -53,8 +53,8 @@ class Authors(models.Model):
         blank=True,
         verbose_name="السيرة الذاتية",
     )
-    profile_image = models.CharField(
-        max_length=255,
+    profile_image = models.ImageField( 
+        upload_to='authors/%Y/%m/%d/',  
         null=True,
         blank=True,
         verbose_name="صورة الملف الشخصي",

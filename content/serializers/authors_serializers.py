@@ -3,6 +3,11 @@ from content.models import Authors
 import re
 
 class AuthorsSerializer(serializers.ModelSerializer):
+    profile_image = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Upload profile image"
+    )
     class Meta:
         model = Authors
         fields = [
@@ -16,9 +21,23 @@ class AuthorsSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'full_name': {'required': True, 'error_messages': {'required': 'Full name is required'}},
+            'slug': {'required': True, 'error_messages': {'required': 'Slug is required'}},
+            'bio': {'required': False, 'allow_null': True}, 
+            'email': {'required': False, 'allow_null': True, 'allow_blank': True},  
+            'profile_image': {'required': False, 'allow_null': True}, 
+        }
+    
 
 
 class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
+    profile_image = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Upload profile image"
+    )
+    
     class Meta:
         model = Authors
         fields = ['full_name', 'slug', 'bio', 'profile_image', 'email']
@@ -26,7 +45,6 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
             'full_name': {'required': True, 'error_messages': {'required': 'Full name is required'}},
             'slug': {'required': True, 'error_messages': {'required': 'Slug is required'}},
             'bio': {'required': False, 'allow_null': True, 'allow_blank': True},
-            'profile_image': {'required': False, 'allow_null': True, 'allow_blank': True},
             'email': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
     
@@ -40,8 +58,7 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
         if self.instance and self.instance.full_name == value:
             return value
         
-        if Authors.objects.filter(full_name=value).exists():
-            raise serializers.ValidationError("Full name already exists")
+        
         
         return value
     
@@ -55,8 +72,7 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
         if self.instance and self.instance.slug == value:
             return value
         
-        if Authors.objects.filter(slug=value).exists():
-            raise serializers.ValidationError("Slug already exists")
+        
         
         return value
     
