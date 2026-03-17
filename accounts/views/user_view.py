@@ -134,16 +134,16 @@ class UserBulkDeleteAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def delete(self, request):
-        user_ids = request.data.get('user_ids', [])
+        user_ids = request.data.get('ids', [])
         
         if not user_ids:
             return Response({
-                "message": "Please provide user_ids"
+                "message": "Please provide ids"
             }, status=status.HTTP_400_BAD_REQUEST)
         
         if not isinstance(user_ids, list):
             return Response({
-                "message": "user_ids must be a list"
+                "message": "ids must be a list"
             }, status=status.HTTP_400_BAD_REQUEST)
         
         if request.user.id in user_ids:
