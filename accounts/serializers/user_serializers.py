@@ -17,10 +17,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'password', 'full_name', 'role',
+            'id','username', 'email', 'password', 'full_name', 'role',
             'is_active', 'created_at', 'created_by', 'created_by_username'
         ]
-        read_only_fields = ['id', 'created_at', 'created_by', 'created_by_username']
+        read_only_fields = ['id','username', 'is_active', 'created_at', 'created_by', 'created_by_username']
         extra_kwargs = {
             'username': {'required': True},
             'email': {'required': True},

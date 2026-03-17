@@ -175,6 +175,47 @@ class TagHardDeleteView(generics.DestroyAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+class TagBulkHardDeleteView(APIView):
+    """
+    Bulk hard delete tags (permanent deletion - admin only)
+    """
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def delete(self, request):
+        tag_ids = request.data.get('ids', [])
+        
+        if not tag_ids:
+            return Response({
+                "message": "please provide ids"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not isinstance(tag_ids, list):
+            return Response({
+                "message": "ids must be a list"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get tags to return their names in response
+        tags = Tags.objects.filter(id__in=tag_ids)
+        found_ids = list(tags.values_list('id', flat=True))
+        
+        if not found_ids:
+            return Response({
+                "message": "no tags found with the provided ids"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Store tag names for response message (using slug as identifier)
+        tag_names = list(tags.values_list('slug', flat=True))
+        deleted_count = len(found_ids)
+        
+        # Permanent delete
+        tags.delete()
+        
+        return Response({
+            "message": f"{deleted_count} out of {len(tag_ids)} tags deleted permanently successfully",
+            "deleted_ids": found_ids,
+            "deleted_names": tag_names
+        }, status=status.HTTP_200_OK)
+
 # ============ RESTORE DELETED ============
 class TagRestoreView(APIView):
 

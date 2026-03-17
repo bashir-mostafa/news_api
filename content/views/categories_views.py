@@ -172,6 +172,47 @@ class CategoryHardDeleteView(generics.DestroyAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CategoryBulkHardDeleteView(APIView):
+    """
+    Bulk hard delete categories (permanent deletion - admin only)
+    """
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def delete(self, request):
+        category_ids = request.data.get('ids', [])
+        
+        if not category_ids:
+            return Response({
+                "message": "please provide ids"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not isinstance(category_ids, list):
+            return Response({
+                "message": "category_ids must be a list"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get categories to return their names in response
+        categories = Categories.objects.filter(id__in=category_ids)
+        found_ids = list(categories.values_list('id', flat=True))
+        
+        if not found_ids:
+            return Response({
+                "message": "no categories found with the provided ids"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Store category names for response message
+        category_names = list(categories.values_list('name_en', flat=True))
+        deleted_count = len(found_ids)
+        
+        # Permanent delete
+        categories.delete()
+        
+        return Response({
+            "message": f"{deleted_count} out of {len(category_ids)} categories deleted permanently successfully",
+            "deleted_ids": found_ids,
+            "deleted_names": category_names
+        }, status=status.HTTP_200_OK)
+    
 # ============ RESTORE DELETED ============
 class CategoryRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -203,7 +244,7 @@ class CategoryBulkDeleteView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def delete(self, request):
-        category_ids = request.data.get('category_ids', [])
+        category_ids = request.data.get('ids', [])
         
         if not category_ids:
             return Response({
@@ -235,7 +276,7 @@ class CategoryBulkRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request):
-        category_ids = request.data.get('category_ids', [])
+        category_ids = request.data.get('ids', [])
         
         if not category_ids:
             return Response({

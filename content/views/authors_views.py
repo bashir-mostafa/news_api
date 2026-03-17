@@ -172,6 +172,45 @@ class AuthorHardDeleteView(generics.DestroyAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AuthorBulkHardDeleteView(APIView):
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def delete(self, request):
+        author_ids = request.data.get('ids', [])
+        
+        if not author_ids:
+            return Response({
+                "message": "please provide ids"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not isinstance(author_ids, list):
+            return Response({
+                "message": "ids must be a list"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get authors to return their names in response
+        authors = Authors.objects.filter(id__in=author_ids)
+        found_ids = list(authors.values_list('id', flat=True))
+        
+        if not found_ids:
+            return Response({
+                "message": "no authors found with the provided ids"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Store author names for response message
+        author_names = list(authors.values_list('full_name', flat=True))
+        deleted_count = len(found_ids)
+        
+        # Permanent delete
+        authors.delete()
+        
+        return Response({
+            "message": f"{deleted_count} out of {len(author_ids)} authors deleted permanently successfully",
+            "deleted_ids": found_ids,
+            "deleted_names": author_names
+        }, status=status.HTTP_200_OK)
+
 # ============ RESTORE DELETED ============
 class AuthorRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -203,7 +242,7 @@ class AuthorBulkDeleteView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def delete(self, request):
-        author_ids = request.data.get('author_ids', [])
+        author_ids = request.data.get('ids', [])
         
         if not author_ids:
             return Response({
@@ -235,7 +274,7 @@ class AuthorBulkRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request):
-        author_ids = request.data.get('author_ids', [])
+        author_ids = request.data.get('ids', [])
         
         if not author_ids:
             return Response({
