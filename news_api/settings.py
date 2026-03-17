@@ -2,7 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 import os 
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-!@#%$^&*()_+1234567890abcdefghijklmnopqrstuvwxyz"
 
@@ -10,7 +10,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -25,7 +24,6 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts.apps.AccountsConfig",
     "content.apps.ContentConfig",
-
 ]
 
 MIDDLEWARE = [
@@ -60,27 +58,14 @@ TEMPLATES = [
 WSGI_APPLICATION = "news_api.wsgi.application"
 
 # Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "HOST": config("POSTGRES_HOST"),
-#         "NAME": config("POSTGRES_DB"),
-#         "USER": config("POSTGRES_USER"),
-#         "PASSWORD": config("POSTGRES_PASSWORD"),
-#         "PORT": config("POSTGRES_PORT", cast=int),
-#     }
-# }
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # المسار الذي ستحفظ فيه قاعدة البيانات
+        'NAME': BASE_DIR / 'db.sqlite3',  # الآن سيكون داخل مجلد المشروع
     }
 }
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -97,8 +82,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -107,14 +90,10 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
+# Static files
 STATIC_URL = "static/"
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # CSRF
@@ -129,7 +108,7 @@ CORS_ORIGIN_WHITELIST = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 # DRF
 REST_FRAMEWORK = {
-"DEFAULT_AUTHENTICATION_CLASSES": ("accounts.authentication.CookieJWTAuthentication",),
+    "DEFAULT_AUTHENTICATION_CLASSES": ("accounts.authentication.CookieJWTAuthentication",),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20
 }
@@ -148,8 +127,9 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_REFRESH_PATH": "/accounts/auth/",
     "AUTH_COOKIE_USE_CSRF": True,
 }
-AUTH_USER_MODEL = 'accounts.CustomUser'
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# Media files - تم التعديل هنا
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'  # استخدام Path بدلاً من os.path

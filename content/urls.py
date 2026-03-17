@@ -1,6 +1,7 @@
 from django.urls import path
 from content.views import tags_views 
 from content.views import authors_views 
+from content.views import categories_views
 
 app_name = 'tags'
 
@@ -46,4 +47,23 @@ urlpatterns = [
     # ============ BULK OPERATIONS ============
     path('authors/bulk-delete/', authors_views.AuthorBulkDeleteView.as_view(), name='author-bulk-delete'),
     path('authors/bulk-restore/', authors_views.AuthorBulkRestoreView.as_view(), name='author-bulk-restore'),
+   # ============ BASIC CRUD ============
+    # GET (list all categories), POST (create new category)
+    path('categories/', categories_views.CategoryListCreateView.as_view(), name='category-list-create'),
+    # GET (detail), PUT (update), PATCH (partial update), DELETE (soft delete)
+    path('categories/<int:id>/', categories_views.CategoryRetrieveUpdateDeleteView.as_view(), name='category-detail'),
+    
+    # ============ HARD DELETE ============
+    # DELETE (permanent delete - admin only)
+    path('categories/<int:id>/hard-delete/', categories_views.CategoryHardDeleteView.as_view(), name='category-hard-delete'),
+    
+    # ============ RESTORE SOFT DELETED ============
+    # POST (restore soft deleted category)
+    path('categories/<int:id>/restore/', categories_views.CategoryRestoreView.as_view(), name='category-restore'),
+    
+    # ============ BULK OPERATIONS ============
+    # DELETE (bulk soft delete)
+    path('categories/bulk-delete/', categories_views.CategoryBulkDeleteView.as_view(), name='category-bulk-delete'),
+    # POST (bulk restore)
+    path('categories/bulk-restore/', categories_views.CategoryBulkRestoreView.as_view(), name='category-bulk-restore'),
 ]

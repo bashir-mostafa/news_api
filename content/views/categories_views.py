@@ -5,31 +5,31 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from content.pagination import CompactPagination
-from content.models import Authors
+from content.models import Categories
 from content.serializers import (
-    AuthorsSerializer,
-    AuthorsCreateUpdateSerializer,
-    AuthorsDetailSerializer,
-    AuthorsListSerializer
+    CategoriesSerializer,
+    CategoriesCreateUpdateSerializer,
+    CategoriesDetailSerializer,
+    CategoriesListSerializer
 )
 
 # ============ LIST & CREATE ============
-class AuthorListCreateView(generics.ListCreateAPIView):
+class CategoryListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id']
     pagination_class = CompactPagination
-    search_fields = ['full_name', 'email', 'bio', 'slug']
-    ordering_fields = ['created_at', 'full_name']
-    ordering = ['-created_at']
+    search_fields = ['name_ar', 'name_ku', 'name_en', 'description']
+    ordering_fields = ['created_at', 'name_ar', 'name_en', 'name_ku', 'slug']
+    ordering = ['name_ar']
     
     def get_queryset(self):
-        return Authors.objects.filter(deleted_at__isnull=True)
+        return Categories.objects.filter(deleted_at__isnull=True)
     
     def get_serializer_class(self):
         if self.request.method == 'GET':
-            return AuthorsListSerializer
-        return AuthorsCreateUpdateSerializer
+            return CategoriesListSerializer
+        return CategoriesCreateUpdateSerializer
     
     def perform_create(self, serializer):
         serializer.save()
@@ -40,11 +40,11 @@ class AuthorListCreateView(generics.ListCreateAPIView):
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
             
-            author = Authors.objects.get(id=serializer.instance.id)
-            detail_serializer = AuthorsDetailSerializer(author)
+            category = Categories.objects.get(id=serializer.instance.id)
+            detail_serializer = CategoriesDetailSerializer(category)
             
             return Response({
-                "message": "author created successfully",
+                "message": "category created successfully",
                 "data": detail_serializer.data
             }, status=status.HTTP_201_CREATED)
             
@@ -64,7 +64,7 @@ class AuthorListCreateView(generics.ListCreateAPIView):
             
             serializer = self.get_serializer(queryset, many=True)
             return Response({
-                "message": "get all authors successfully",
+                "message": "get all categories successfully",
                 "count": queryset.count(),
                 "data": serializer.data
             })
@@ -76,17 +76,17 @@ class AuthorListCreateView(generics.ListCreateAPIView):
 
 
 # ============ RETRIEVE, UPDATE, DELETE ============
-class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
-        return Authors.objects.filter(deleted_at__isnull=True)
+        return Categories.objects.filter(deleted_at__isnull=True)
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
-            return AuthorsCreateUpdateSerializer
-        return AuthorsDetailSerializer
+            return CategoriesCreateUpdateSerializer
+        return CategoriesDetailSerializer
     
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -94,7 +94,7 @@ class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
             serializer = self.get_serializer(instance)
             
             return Response({
-                "message": "get author details successfully",
+                "message": "get category details successfully",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
             
@@ -112,10 +112,10 @@ class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
             self.perform_update(serializer)
             
             updated_instance = self.get_object()
-            detail_serializer = AuthorsDetailSerializer(updated_instance)
+            detail_serializer = CategoriesDetailSerializer(updated_instance)
             
             return Response({
-                "message": "author updated successfully",
+                "message": "category updated successfully",
                 "data": detail_serializer.data
             }, status=status.HTTP_200_OK)
             
@@ -139,7 +139,7 @@ class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
             instance.save()
             
             return Response({
-                "message": "author deleted successfully"
+                "message": "category deleted successfully"
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -149,21 +149,21 @@ class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ============ HARD DELETE ============
-class AuthorHardDeleteView(generics.DestroyAPIView):
+class CategoryHardDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     lookup_field = 'id'
     
     def get_queryset(self):
-        return Authors.objects.all()
+        return Categories.objects.all()
     
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            author_name = instance.full_name
+            category_name = instance.name_en
             instance.delete()
             
             return Response({
-                "message": f"author '{author_name}' deleted permanently successfully"
+                "message": f"category '{category_name}' deleted permanently successfully"
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -173,24 +173,24 @@ class AuthorHardDeleteView(generics.DestroyAPIView):
 
 
 # ============ RESTORE DELETED ============
-class AuthorRestoreView(APIView):
+class CategoryRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     
     def post(self, request, id):
         try:
-            author = Authors.objects.get(id=id, deleted_at__isnull=False)
-            author.deleted_at = None
-            author.save()
+            category = Categories.objects.get(id=id, deleted_at__isnull=False)
+            category.deleted_at = None
+            category.save()
             
-            serializer = AuthorsDetailSerializer(author)
+            serializer = CategoriesDetailSerializer(category)
             return Response({
-                "message": "author restored successfully",
+                "message": "category restored successfully",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
             
-        except Authors.DoesNotExist:
+        except Categories.DoesNotExist:
             return Response({
-                "message": "author not found or not deleted"
+                "message": "category not found or not deleted"
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({
@@ -199,64 +199,64 @@ class AuthorRestoreView(APIView):
 
 
 # ============ BULK DELETE ============
-class AuthorBulkDeleteView(APIView):
+class CategoryBulkDeleteView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def delete(self, request):
-        author_ids = request.data.get('author_ids', [])
+        category_ids = request.data.get('category_ids', [])
         
-        if not author_ids:
+        if not category_ids:
             return Response({
-                "message": "please provide author_ids"
+                "message": "please provide category_ids"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if not isinstance(author_ids, list):
+        if not isinstance(category_ids, list):
             return Response({
-                "message": "author_ids must be a list"
+                "message": "category_ids must be a list"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        deleted_count = Authors.objects.filter(
-            id__in=author_ids, 
+        deleted_count = Categories.objects.filter(
+            id__in=category_ids, 
             deleted_at__isnull=True
         ).update(deleted_at=timezone.now())
         
         if deleted_count == 0:
             return Response({
-                "message": "no authors were deleted. they may already be deleted or not exist."
+                "message": "no categories were deleted. they may already be deleted or not exist."
             }, status=status.HTTP_404_NOT_FOUND)
         
         return Response({
-            "message": f"{deleted_count} out of {len(author_ids)} authors deleted successfully"
+            "message": f"{deleted_count} out of {len(category_ids)} categories deleted successfully"
         }, status=status.HTTP_200_OK)
 
 
 # ============ BULK RESTORE ============
-class AuthorBulkRestoreView(APIView):
+class CategoryBulkRestoreView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request):
-        author_ids = request.data.get('author_ids', [])
+        category_ids = request.data.get('category_ids', [])
         
-        if not author_ids:
+        if not category_ids:
             return Response({
-                "message": "please provide author_ids"
+                "message": "please provide category_ids"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if not isinstance(author_ids, list):
+        if not isinstance(category_ids, list):
             return Response({
-                "message": "author_ids must be a list"
+                "message": "category_ids must be a list"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        restored_count = Authors.objects.filter(
-            id__in=author_ids, 
+        restored_count = Categories.objects.filter(
+            id__in=category_ids, 
             deleted_at__isnull=False
         ).update(deleted_at=None)
         
         if restored_count == 0:
             return Response({
-                "message": "no authors were restored. they may not be deleted or not exist."
+                "message": "no categories were restored. they may not be deleted or not exist."
             }, status=status.HTTP_404_NOT_FOUND)
         
         return Response({
-            "message": f"{restored_count} out of {len(author_ids)} authors restored successfully"
+            "message": f"{restored_count} out of {len(category_ids)} categories restored successfully"
         }, status=status.HTTP_200_OK)

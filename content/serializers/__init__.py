@@ -10,3 +10,9 @@ from .authors_serializers import (
     AuthorsDetailSerializer,
     AuthorsListSerializer
 )
+from .categories_serializers import (
+    CategoriesSerializer,
+    CategoriesCreateUpdateSerializer,
+    CategoriesDetailSerializer,
+    CategoriesListSerializer
+)

@@ -78,3 +78,38 @@ class Authors(models.Model):
         verbose_name="تاريخ الحذف",
     )
 
+class Categories(models.Model):
+    slug = models.SlugField(
+        max_length=255,
+        verbose_name="الرابط المختصر",
+    )
+    name_ar = models.CharField(
+        max_length=255,
+        verbose_name="الاسم (عربي)",
+    )
+    name_ku = models.CharField(
+        max_length=255,
+        verbose_name="الاسم (كردي)",
+    )
+    name_en = models.CharField(
+        max_length=255,
+        verbose_name="الاسم (إنجليزي)",
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="الوصف",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="تاريخ الإنشاء",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="تاريخ التعديل",
+    )
+    deleted_at = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        verbose_name="تاريخ الحذف",
+    )
