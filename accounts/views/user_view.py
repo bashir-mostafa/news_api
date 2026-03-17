@@ -14,7 +14,7 @@ from ..pagination import CompactPagination, KoreanStylePagination, PageNumberPag
 
 # ============ LIST & CREATE ============
 class UserListCreateAPIView(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.all()
+    queryset = CustomUser.objects.filter(deleted_at__isnull=True)
     
     permission_classes = (IsAuthenticated, IsAdminUser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
