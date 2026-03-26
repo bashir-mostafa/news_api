@@ -2,10 +2,44 @@ from django.urls import path
 from content.views import tags_views 
 from content.views import authors_views 
 from content.views import categories_views
+from content.views import posts_views
 
 app_name = 'tags'
 
 urlpatterns = [
+     # ============ POSTS URLs ============
+    # List and Create
+    path('posts/', posts_views.PostListCreateView.as_view(), name='post-list-create'),
+    
+    # Retrieve, Update, Delete by ID
+    path('posts/<int:id>/', posts_views.PostRetrieveUpdateDeleteView.as_view(), name='post-detail'),
+    
+    # Get by ID (بدلاً من Slug)
+    path('posts/id/<int:id>/', posts_views.PostByIdView.as_view(), name='post-by-id'),
+    
+    # Deleted Posts
+    path('posts/deleted/', posts_views.PostDeletedListView.as_view(), name='post-deleted-list'),
+    
+    # Statistics
+    path('posts/statistics/', posts_views.PostStatisticsView.as_view(), name='post-statistics'),
+    
+    # Publish / Unpublish
+    path('posts/publish/<int:id>/', posts_views.PostPublishView.as_view(), name='post-publish'),
+    path('posts/unpublish/<int:id>/', posts_views.PostUnpublishView.as_view(), name='post-unpublish'),
+    
+    # Increment View Count
+    path('posts/increment-view/<int:id>/', posts_views.PostIncrementViewView.as_view(), name='post-increment-view'),
+    
+    # Restore
+    path('posts/restore/<int:id>/', posts_views.PostRestoreView.as_view(), name='post-restore'),
+    
+    # Bulk Operations
+    path('posts/bulk-delete/', posts_views.PostBulkDeleteView.as_view(), name='post-bulk-delete'),
+    path('posts/bulk-restore/', posts_views.PostBulkRestoreView.as_view(), name='post-bulk-restore'),
+    path('posts/bulk-hard-delete/', posts_views.PostBulkHardDeleteView.as_view(), name='post-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('posts/hard-delete/<int:id>/', posts_views.PostHardDeleteView.as_view(), name='post-hard-delete'),
     # ============ BASIC CRUD ============
     # GET (list all tags), POST (create new tag)
     path('tags/', tags_views.TagListCreateView.as_view(), name='tag-list-create'),

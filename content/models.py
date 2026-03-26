@@ -1,5 +1,21 @@
 from django.db import models
 
+class ContentType(models.TextChoices):
+    TEXT = 'text'
+    INFOGRAPHIC = 'infographic'
+    VIDEO = 'video'
+    DOCUMENTARY = 'documentary'
+    REPORT = 'report'
+    SURVEY = 'survey'
+    PUBLICATION = 'publication'
+    EVENT = 'event'
+
+
+class Language(models.TextChoices):
+    AR = 'ar'
+    KU = 'ku'
+    EN = 'en'
+
 
 class Tags(models.Model):
     name_ar = models.CharField(
@@ -112,5 +128,147 @@ class Categories(models.Model):
     deleted_at = models.DateTimeField(
         null=True, 
         blank=True, 
+        verbose_name="تاريخ الحذف",
+    )
+    class Meta:
+        verbose_name = "الوسوم"
+        verbose_name_plural = "الوسوم"
+
+    def get_name(self, language='ar'):
+        names = {
+            'ar': self.name_ar,
+            'ku': self.name_ku,
+            'en': self.name_en
+        }
+        return names.get(language, self.name_ar)
+    
+class Posts(models.Model):
+    original_post = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='translations',
+        verbose_name="المقال الأصلي",
+        help_text="المرجع للمقال الأصلي في حالة الترجمات"
+    )
+    
+    author = models.ForeignKey(
+        'Authors',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='posts',
+        verbose_name="الكاتب",
+        db_column='author_id'
+    )
+    
+    category = models.ForeignKey(
+        'Categories',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
+        verbose_name="التصنيف",
+        db_column='category_id'
+    )
+    
+    tags = models.ManyToManyField(
+        'Tags',
+        blank=True,
+        related_name='posts',
+        verbose_name="الوسوم"
+    )
+    
+    language = models.CharField(
+        max_length=10,
+        choices=Language.choices,
+        default=Language.AR,
+        verbose_name="اللغة",
+        db_index=True,
+        help_text="لغة المحتوى"
+    )
+    
+    title = models.CharField(
+        max_length=500,
+        verbose_name="العنوان",
+        db_index=True,
+        help_text="عنوان المقال حسب اللغة المختارة"
+    )
+    
+    excerpt = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="الملخص",
+        help_text="ملخص قصير للمقال"
+    )
+    
+    content = models.TextField(
+        verbose_name="المحتوى",
+        help_text="المحتوى الرئيسي للمقال"
+    )
+    
+    content_type = models.CharField(
+        max_length=20,
+        choices=ContentType.choices,
+        default=ContentType.TEXT,
+        verbose_name="نوع المحتوى",
+        db_index=True
+    )
+    
+    meta_title = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="العنوان التعريفي",
+        help_text="عنوان SEO مختلف عن العنوان الرئيسي"
+    )
+    
+    meta_description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="الوصف التعريفي",
+        help_text="وصف SEO لمحركات البحث"
+    )
+    
+    featured_image = models.ImageField(
+        upload_to='posts/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        verbose_name="الصورة المميزة",
+        help_text="الصورة المميزة للمقال"
+    )
+    
+    view_count = models.IntegerField(
+        default=0,
+        verbose_name="عدد المشاهدات",
+        db_index=True
+    )
+    
+    published_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="تاريخ النشر",
+        db_index=True
+    )
+    
+    is_published = models.BooleanField(
+        default=False,
+        verbose_name="منشور",
+        db_index=True
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="تاريخ الإنشاء",
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="تاريخ التعديل",
+    )
+    
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
         verbose_name="تاريخ الحذف",
     )
