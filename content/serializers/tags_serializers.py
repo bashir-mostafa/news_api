@@ -117,4 +117,4 @@ class TagsDetailSerializer(serializers.ModelSerializer):
 class TagsListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tags
-        fields = ['id', 'name_ar', 'name_ku', 'name_en', 'slug']
+        fields = ['id', 'name_ar', 'name_ku', 'name_en', 'slug', 'created_at']

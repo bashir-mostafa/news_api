@@ -120,4 +120,4 @@ class AuthorsDetailSerializer(serializers.ModelSerializer):
 class AuthorsListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Authors
-        fields = ['id', 'full_name', 'slug', 'profile_image', 'email']
+        fields = ['id', 'full_name', 'slug',"bio", 'profile_image', 'email', 'created_at']

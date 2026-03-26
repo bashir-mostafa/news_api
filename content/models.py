@@ -77,6 +77,7 @@ class Authors(models.Model):
         blank=True, 
         verbose_name="تاريخ الحذف",
     )
+    
 
 class Categories(models.Model):
     slug = models.SlugField(

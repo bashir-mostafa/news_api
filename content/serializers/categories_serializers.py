@@ -113,4 +113,4 @@ class CategoriesDetailSerializer(serializers.ModelSerializer):
 class CategoriesListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categories
-        fields = ['id', 'slug', 'name_ar', 'name_ku', 'name_en']
+        fields = ['id', 'slug', 'name_ar', 'name_ku', 'name_en','created_at']
