@@ -31,7 +31,7 @@ urlpatterns = [
     path('posts/increment-view/<int:id>/', posts_views.PostIncrementViewView.as_view(), name='post-increment-view'),
     
     # Restore
-    path('posts/restore/<int:id>/', posts_views.PostRestoreView.as_view(), name='post-restore'),
+    path('posts/<int:id>/restore/', posts_views.PostRestoreView.as_view(), name='post-restore'),
     
     # Bulk Operations
     path('posts/bulk-delete/', posts_views.PostBulkDeleteView.as_view(), name='post-bulk-delete'),
@@ -39,7 +39,7 @@ urlpatterns = [
     path('posts/bulk-hard-delete/', posts_views.PostBulkHardDeleteView.as_view(), name='post-bulk-hard-delete'),
     
     # Hard Delete
-    path('posts/hard-delete/<int:id>/', posts_views.PostHardDeleteView.as_view(), name='post-hard-delete'),
+    path('posts/<int:id>/hard-delete/', posts_views.PostHardDeleteView.as_view(), name='post-hard-delete'),
     # ============ BASIC CRUD ============
     # GET (list all tags), POST (create new tag)
     path('tags/', tags_views.TagListCreateView.as_view(), name='tag-list-create'),
