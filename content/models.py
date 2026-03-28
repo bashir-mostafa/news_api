@@ -341,3 +341,25 @@ class Events(models.Model):
         ordering = ['-created_at']
     def __str__(self):
         return f"Event for {self.post.title}: {self.event_type} on {self.event_date}"
+    
+
+class Publications(models.Model):
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='publications')
+    publication_type = models.CharField(max_length=50, verbose_name="نوع النشر")
+    issue_number = models.CharField(max_length=50, verbose_name="رقم الإصدار")
+    volume = models.CharField(max_length=50, verbose_name="المجلد")
+    isbn = models.CharField(max_length=20, verbose_name="رقم ISBN")
+    download_url = models.URLField(null=True, blank=True, verbose_name="رابط التحميل")
+    cover_image = models.ImageField(upload_to='publications/%Y/%m/%d/', null=True, blank=True, verbose_name="صورة الغلاف")
+    page_count = models.IntegerField(null=True, blank=True, verbose_name="عدد الصفحات")
+    publish_year = models.IntegerField(null=True, blank=True, verbose_name="سنة النشر")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    class Meta:
+        db_table = 'content_publications'
+        verbose_name = "نشر"
+        verbose_name_plural = "النشرات"
+        ordering = ['-created_at']
+    def __str__(self):
+        return f"Publication for {self.post.title}: {self.publication_type} - Issue {self.issue_number}"

@@ -58,3 +58,4 @@ from .events_serializers import (
     EventsListSerializer,
     EventsDeletedListSerializer
 )
+from .publications_serializers import *

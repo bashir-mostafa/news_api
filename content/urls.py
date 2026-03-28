@@ -7,7 +7,8 @@ from content.views import (
     authors_views, 
     tags_views,
     surveys_views,
-    survey_options_views
+    survey_options_views,
+    publications_views
     )
 
 app_name = 'tags'
@@ -213,4 +214,27 @@ urlpatterns = [
     
     # Hard Delete
     path('events/<int:id>/hard-delete/', events_views.EventHardDeleteView.as_view(), name='event-hard-delete'),
+
+
+       # ============ PUBLICATIONS URLs ============
+    # Basic CRUD
+    path('publications/', publications_views.PublicationListCreateView.as_view(), name='publication-list-create'),
+    path('publications/<int:id>/', publications_views.PublicationRetrieveUpdateDeleteView.as_view(), name='publication-detail'),
+    
+    # Deleted Publications
+    path('publications/deleted/', publications_views.PublicationDeletedListView.as_view(), name='publication-deleted-list'),
+    
+    # Get Publications by Post
+    path('publications/by-post/<int:post_id>/', publications_views.PublicationsByPostView.as_view(), name='publications-by-post'),
+    
+    # Restore
+    path('publications/<int:id>/restore/', publications_views.PublicationRestoreView.as_view(), name='publication-restore'),
+    
+    # Bulk Operations
+    path('publications/bulk-delete/', publications_views.PublicationBulkDeleteView.as_view(), name='publication-bulk-delete'),
+    path('publications/bulk-restore/', publications_views.PublicationBulkRestoreView.as_view(), name='publication-bulk-restore'),
+    path('publications/bulk-hard-delete/', publications_views.PublicationBulkHardDeleteView.as_view(), name='publication-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('publications/<int:id>/hard-delete/', publications_views.PublicationHardDeleteView.as_view(), name='publication-hard-delete'),
 ]
