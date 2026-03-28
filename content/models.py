@@ -272,3 +272,54 @@ class Posts(models.Model):
         blank=True,
         verbose_name="تاريخ الحذف",
     )
+
+class Comments(models.Model):
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='comments')
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+    email = models.EmailField(verbose_name="البريد الإلكتروني")
+    comment = models.TextField(verbose_name="التعليق")
+    is_approved = models.BooleanField(default=False, verbose_name="موافق عليه")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    class Meta:
+        db_table = 'content_comments'
+        verbose_name = "تعليق"
+        verbose_name_plural = "التعليقات"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Comment by {self.name} on {self.post.title}"
+
+class Surveys(models.Model):
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='surveys')
+    question = models.CharField(max_length=255, verbose_name="السؤال")
+    is_active = models.BooleanField(default=True, verbose_name="نشط")
+    closes_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الإغلاق")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    class Meta:
+        db_table = 'content_surveys'
+        verbose_name = "استبيان"
+        verbose_name_plural = "الاستبيانات"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Survey for {self.post.title}: {self.question}"
+    
+class SurveyOptions(models.Model):
+    survey = models.ForeignKey(Surveys, on_delete=models.CASCADE, related_name='options')
+    option_text = models.CharField(max_length=255, verbose_name="نص الخيار")
+    vote_count = models.IntegerField(default=0, verbose_name="عدد الأصوات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    class Meta:
+        db_table = 'content_survey_options'
+        verbose_name = "خيار استبيان"
+        verbose_name_plural = "خيارات الاستبيان"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Option for {self.survey.post.title}: {self.option_text}"

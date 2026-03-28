@@ -44,3 +44,42 @@ from .posts_views import (
     PostIncrementViewView,
     PostByIdView
 )
+from .comments_views import (
+    CommentListCreateView,
+    CommentRetrieveUpdateDeleteView,
+    CommentHardDeleteView,
+    CommentBulkHardDeleteView,
+    CommentRestoreView,
+    CommentBulkDeleteView,
+    CommentBulkRestoreView,
+    CommentDeletedListView,
+    CommentApproveView,
+    CommentUnapproveView,
+    CommentsByPostView
+)
+
+from .surveys_views import (
+    SurveyListCreateView,
+    SurveyRetrieveUpdateDeleteView,
+    SurveyHardDeleteView,
+    SurveyBulkHardDeleteView,
+    SurveyRestoreView,
+    SurveyBulkDeleteView,
+    SurveyBulkRestoreView,
+    SurveyDeletedListView,
+    SurveyActivateView,
+    SurveyDeactivateView,
+    SurveysByPostView
+)
+from .survey_options_views import (
+    SurveyOptionListCreateView,
+    SurveyOptionRetrieveUpdateDeleteView,
+    SurveyOptionHardDeleteView,
+    SurveyOptionBulkHardDeleteView,
+    SurveyOptionRestoreView,
+    SurveyOptionBulkDeleteView,
+    SurveyOptionBulkRestoreView,
+    SurveyOptionDeletedListView,
+    SurveyOptionVoteView,
+    SurveyOptionsBySurveyView
+)

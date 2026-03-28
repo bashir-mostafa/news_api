@@ -27,3 +27,26 @@ from .posts_serializers import (
     PostsListSerializer,
     PostsDeletedListSerializer
 )
+from .comments_serializers import (
+    CommentsSerializer,
+    CommentsCreateUpdateSerializer,
+    CommentsDetailSerializer,
+    CommentsListSerializer,
+    CommentsDeletedListSerializer
+)
+
+from .surveys_serializers import (
+    SurveysSerializer,
+    SurveysCreateUpdateSerializer,
+    SurveysDetailSerializer,
+    SurveysListSerializer,
+    SurveysDeletedListSerializer
+)
+
+from .survey_options_serializers import (
+    SurveyOptionsSerializer,
+    SurveyOptionsCreateUpdateSerializer,
+    SurveyOptionsDetailSerializer,
+    SurveyOptionsListSerializer,
+    SurveyOptionsDeletedListSerializer
+)

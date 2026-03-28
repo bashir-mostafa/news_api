@@ -1,8 +1,13 @@
 from django.urls import path
-from content.views import tags_views 
-from content.views import authors_views 
-from content.views import categories_views
-from content.views import posts_views
+from content.views import (
+    posts_views,
+    comments_views, 
+    categories_views,
+    authors_views, 
+    tags_views,
+    surveys_views,
+    survey_options_views
+    )
 
 app_name = 'tags'
 
@@ -103,4 +108,81 @@ urlpatterns = [
     path('categories/bulk-delete/', categories_views.CategoryBulkDeleteView.as_view(), name='category-bulk-delete'),
     # POST (bulk restore)
     path('categories/bulk-restore/', categories_views.CategoryBulkRestoreView.as_view(), name='category-bulk-restore'),
+
+    # ============ COMMENTS URLs ============
+    # Basic CRUD
+    path('comments/', comments_views.CommentListCreateView.as_view(), name='comment-list-create'),
+    path('comments/<int:id>/', comments_views.CommentRetrieveUpdateDeleteView.as_view(), name='comment-detail'),
+    
+    # Deleted Comments
+    path('comments/deleted/', comments_views.CommentDeletedListView.as_view(), name='comment-deleted-list'),
+    
+    # Approve / Unapprove
+    path('comments/approve/<int:id>/', comments_views.CommentApproveView.as_view(), name='comment-approve'),
+    path('comments/unapprove/<int:id>/', comments_views.CommentUnapproveView.as_view(), name='comment-unapprove'),
+    
+    # Get Comments by Post
+    path('comments/by-post/<int:post_id>/', comments_views.CommentsByPostView.as_view(), name='comments-by-post'),
+    
+    # Restore
+    path('comments/<int:id>/restore/', comments_views.CommentRestoreView.as_view(), name='comment-restore'),
+    
+    # Bulk Operations
+    path('comments/bulk-delete/', comments_views.CommentBulkDeleteView.as_view(), name='comment-bulk-delete'),
+    path('comments/bulk-restore/', comments_views.CommentBulkRestoreView.as_view(), name='comment-bulk-restore'),
+    path('comments/bulk-hard-delete/', comments_views.CommentBulkHardDeleteView.as_view(), name='comment-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('comments/<int:id>/hard-delete/', comments_views.CommentHardDeleteView.as_view(), name='comment-hard-delete'),
+
+        # ============ SURVEYS URLs ============
+    # Basic CRUD
+    path('surveys/', surveys_views.SurveyListCreateView.as_view(), name='survey-list-create'),
+    path('surveys/<int:id>/', surveys_views.SurveyRetrieveUpdateDeleteView.as_view(), name='survey-detail'),
+    
+    # Deleted Surveys
+    path('surveys/deleted/', surveys_views.SurveyDeletedListView.as_view(), name='survey-deleted-list'),
+    
+    # Activate / Deactivate
+    path('surveys/activate/<int:id>/', surveys_views.SurveyActivateView.as_view(), name='survey-activate'),
+    path('surveys/deactivate/<int:id>/', surveys_views.SurveyDeactivateView.as_view(), name='survey-deactivate'),
+    
+    # Get Surveys by Post
+    path('surveys/by-post/<int:post_id>/', surveys_views.SurveysByPostView.as_view(), name='surveys-by-post'),
+    
+    # Restore
+    path('surveys/<int:id>/restore/', surveys_views.SurveyRestoreView.as_view(), name='survey-restore'),
+    
+    # Bulk Operations
+    path('surveys/bulk-delete/', surveys_views.SurveyBulkDeleteView.as_view(), name='survey-bulk-delete'),
+    path('surveys/bulk-restore/', surveys_views.SurveyBulkRestoreView.as_view(), name='survey-bulk-restore'),
+    path('surveys/bulk-hard-delete/', surveys_views.SurveyBulkHardDeleteView.as_view(), name='survey-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('surveys/<int:id>/hard-delete/', surveys_views.SurveyHardDeleteView.as_view(), name='survey-hard-delete'),
+
+    # ============ SURVEY OPTIONS URLs ============
+    # Basic CRUD
+    path('survey-options/', survey_options_views.SurveyOptionListCreateView.as_view(), name='survey-option-list-create'),
+    path('survey-options/<int:id>/', survey_options_views.SurveyOptionRetrieveUpdateDeleteView.as_view(), name='survey-option-detail'),
+    
+    # Deleted Survey Options
+    path('survey-options/deleted/', survey_options_views.SurveyOptionDeletedListView.as_view(), name='survey-option-deleted-list'),
+    
+    # Vote
+    path('survey-options/vote/<int:id>/', survey_options_views.SurveyOptionVoteView.as_view(), name='survey-option-vote'),
+    
+    # Get Options by Survey
+    path('survey-options/by-survey/<int:survey_id>/', survey_options_views.SurveyOptionsBySurveyView.as_view(), name='survey-options-by-survey'),
+    
+    # Restore
+    path('survey-options/<int:id>/restore/', survey_options_views.SurveyOptionRestoreView.as_view(), name='survey-option-restore'),
+    
+    # Bulk Operations
+    path('survey-options/bulk-delete/', survey_options_views.SurveyOptionBulkDeleteView.as_view(), name='survey-option-bulk-delete'),
+    path('survey-options/bulk-restore/', survey_options_views.SurveyOptionBulkRestoreView.as_view(), name='survey-option-bulk-restore'),
+    path('survey-options/bulk-hard-delete/', survey_options_views.SurveyOptionBulkHardDeleteView.as_view(), name='survey-option-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('survey-options/<int:id>/hard-delete/', survey_options_views.SurveyOptionHardDeleteView.as_view(), name='survey-option-hard-delete'),
 ]
