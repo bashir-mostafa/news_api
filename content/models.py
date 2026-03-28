@@ -323,3 +323,21 @@ class SurveyOptions(models.Model):
 
     def __str__(self):
         return f"Option for {self.survey.post.title}: {self.option_text}"
+    
+
+class Events(models.Model):
+    post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=50, verbose_name="نوع الحدث")
+    event_date = models.DateTimeField(verbose_name="تاريخ الحدث")
+    location = models.CharField(max_length=255, verbose_name="الموقع")
+    attendees_count = models.IntegerField(default=0, verbose_name="عدد الحضور")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    class Meta:
+        db_table = 'content_events'
+        verbose_name = "حدث"
+        verbose_name_plural = "الأحداث"
+        ordering = ['-created_at']
+    def __str__(self):
+        return f"Event for {self.post.title}: {self.event_type} on {self.event_date}"

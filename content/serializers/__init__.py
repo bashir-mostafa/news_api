@@ -50,3 +50,11 @@ from .survey_options_serializers import (
     SurveyOptionsListSerializer,
     SurveyOptionsDeletedListSerializer
 )
+
+from .events_serializers import (
+    EventsSerializer,
+    EventsCreateUpdateSerializer,
+    EventsDetailSerializer,
+    EventsListSerializer,
+    EventsDeletedListSerializer
+)

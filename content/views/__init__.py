@@ -83,3 +83,5 @@ from .survey_options_views import (
     SurveyOptionVoteView,
     SurveyOptionsBySurveyView
 )
+
+from .events_views import *

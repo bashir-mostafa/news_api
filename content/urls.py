@@ -1,5 +1,6 @@
 from django.urls import path
 from content.views import (
+    events_views,
     posts_views,
     comments_views, 
     categories_views,
@@ -185,4 +186,31 @@ urlpatterns = [
     
     # Hard Delete
     path('survey-options/<int:id>/hard-delete/', survey_options_views.SurveyOptionHardDeleteView.as_view(), name='survey-option-hard-delete'),
+
+
+ # ============ EVENTS URLs ============
+    # Basic CRUD
+    path('events/', events_views.EventListCreateView.as_view(), name='event-list-create'),
+    path('events/<int:id>/', events_views.EventRetrieveUpdateDeleteView.as_view(), name='event-detail'),
+    
+    # Deleted Events
+    path('events/deleted/', events_views.EventDeletedListView.as_view(), name='event-deleted-list'),
+    
+    # Attendees Management
+    path('events/increment-attendees/<int:id>/', events_views.EventIncrementAttendeesView.as_view(), name='event-increment-attendees'),
+    path('events/decrement-attendees/<int:id>/', events_views.EventDecrementAttendeesView.as_view(), name='event-decrement-attendees'),
+    
+    # Get Events by Post
+    path('events/by-post/<int:post_id>/', events_views.EventsByPostView.as_view(), name='events-by-post'),
+    
+    # Restore
+    path('events/<int:id>/restore/', events_views.EventRestoreView.as_view(), name='event-restore'),
+    
+    # Bulk Operations
+    path('events/bulk-delete/', events_views.EventBulkDeleteView.as_view(), name='event-bulk-delete'),
+    path('events/bulk-restore/', events_views.EventBulkRestoreView.as_view(), name='event-bulk-restore'),
+    path('events/bulk-hard-delete/', events_views.EventBulkHardDeleteView.as_view(), name='event-bulk-hard-delete'),
+    
+    # Hard Delete
+    path('events/<int:id>/hard-delete/', events_views.EventHardDeleteView.as_view(), name='event-hard-delete'),
 ]
