@@ -1,10 +1,11 @@
 # content/serializers/events_serializers.py
 from rest_framework import serializers
-from content.models import Events, Posts
+from content.models import Events, Posts, EventType
 from django.utils import timezone
 
 class EventsSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     is_past = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     
@@ -15,6 +16,7 @@ class EventsSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'event_type',
+            'event_type_display',
             'event_date',
             'location',
             'attendees_count',
@@ -47,14 +49,14 @@ class EventsCreateUpdateSerializer(serializers.ModelSerializer):
         }
     
     def validate_event_type(self, value):
+        """التحقق من صحة نوع الحدث"""
         if not value or value.strip() == '':
             raise serializers.ValidationError("Event type is required")
         
-        if len(value) < 3:
-            raise serializers.ValidationError("Event type must be at least 3 characters long")
-        
-        if len(value) > 50:
-            raise serializers.ValidationError("Event type cannot exceed 50 characters")
+        # التحقق من أن القيمة موجودة في الاختيارات
+        valid_types = [choice[0] for choice in EventType.choices]
+        if value not in valid_types:
+            raise serializers.ValidationError(f"Invalid event type. Choices: {', '.join(valid_types)}")
         
         return value
     
@@ -118,6 +120,7 @@ class EventsCreateUpdateSerializer(serializers.ModelSerializer):
 class EventsDetailSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
     post_slug = serializers.CharField(source='post.slug', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     is_past = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     
@@ -137,6 +140,7 @@ class EventsDetailSerializer(serializers.ModelSerializer):
 
 class EventsListSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     is_past = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     
@@ -147,6 +151,7 @@ class EventsListSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'event_type',
+            'event_type_display',
             'event_date',
             'location',
             'attendees_count',
@@ -166,6 +171,7 @@ class EventsListSerializer(serializers.ModelSerializer):
 
 class EventsDeletedListSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     is_past = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     
@@ -176,6 +182,7 @@ class EventsDeletedListSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'event_type',
+            'event_type_display',
             'event_date',
             'location',
             'attendees_count',

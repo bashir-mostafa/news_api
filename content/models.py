@@ -17,6 +17,25 @@ class Language(models.TextChoices):
     EN = 'en'
 
 
+class PublicationType(models.TextChoices):
+    BOOK = 'book'
+    MAGAZINE = 'magazine'
+
+
+class EventType(models.TextChoices):
+    DIALOGUE_SESSION = 'dialogue_session'
+    FORUM = 'forum'
+    MEETING = 'meeting'
+    CENTER_NEWS = 'center_news'
+
+
+class MediaFileType(models.TextChoices):
+    IMAGE = 'image'
+    VIDEO = 'video'
+    PDF = 'pdf'
+    AUDIO = 'audio'
+
+
 class Tags(models.Model):
     name_ar = models.CharField(
         max_length=255, 
@@ -327,7 +346,12 @@ class SurveyOptions(models.Model):
 
 class Events(models.Model):
     post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='events')
-    event_type = models.CharField(max_length=50, verbose_name="نوع الحدث")
+    event_type = models.CharField(
+            max_length=50, 
+            choices=EventType.choices,  
+            default=EventType.MEETING,
+            verbose_name="نوع الحدث"
+        )
     event_date = models.DateTimeField(verbose_name="تاريخ الحدث")
     location = models.CharField(max_length=255, verbose_name="الموقع")
     attendees_count = models.IntegerField(default=0, verbose_name="عدد الحضور")
@@ -345,7 +369,11 @@ class Events(models.Model):
 
 class Publications(models.Model):
     post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='publications')
-    publication_type = models.CharField(max_length=50, verbose_name="نوع النشر")
+    publication_type = models.CharField(
+            max_length=50, 
+            choices=PublicationType.choices,  
+            default=PublicationType.BOOK,
+            verbose_name="نوع النشر")
     issue_number = models.CharField(max_length=50, verbose_name="رقم الإصدار")
     volume = models.CharField(max_length=50, verbose_name="المجلد")
     isbn = models.CharField(max_length=20, verbose_name="رقم ISBN")

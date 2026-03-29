@@ -1,10 +1,11 @@
 # content/serializers/publications_serializers.py
 from rest_framework import serializers
-from content.models import Publications, Posts
+from content.models import Publications, Posts, PublicationType
 import re
 
 class PublicationsSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
     cover_image = serializers.SerializerMethodField()
     
     class Meta:
@@ -14,6 +15,7 @@ class PublicationsSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'publication_type',
+            'publication_type_display',
             'issue_number',
             'volume',
             'isbn',
@@ -69,14 +71,14 @@ class PublicationsCreateUpdateSerializer(serializers.ModelSerializer):
         }
     
     def validate_publication_type(self, value):
+        """التحقق من صحة نوع النشر"""
         if not value or value.strip() == '':
             raise serializers.ValidationError("Publication type is required")
         
-        if len(value) < 3:
-            raise serializers.ValidationError("Publication type must be at least 3 characters long")
-        
-        if len(value) > 50:
-            raise serializers.ValidationError("Publication type cannot exceed 50 characters")
+        # التحقق من أن القيمة موجودة في الاختيارات
+        valid_types = [choice[0] for choice in PublicationType.choices]
+        if value not in valid_types:
+            raise serializers.ValidationError(f"Invalid publication type. Choices: {', '.join(valid_types)}")
         
         return value
     
@@ -87,6 +89,12 @@ class PublicationsCreateUpdateSerializer(serializers.ModelSerializer):
         if len(value) > 50:
             raise serializers.ValidationError("Issue number cannot exceed 50 characters")
         
+        return value
+    
+    def validate_volume(self, value):
+        if value and value.strip():
+            if len(value) > 50:
+                raise serializers.ValidationError("Volume cannot exceed 50 characters")
         return value
     
     def validate_isbn(self, value):
@@ -158,6 +166,7 @@ class PublicationsCreateUpdateSerializer(serializers.ModelSerializer):
 class PublicationsDetailSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
     post_slug = serializers.CharField(source='post.slug', read_only=True)
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
     cover_image = serializers.SerializerMethodField()
     
     class Meta:
@@ -177,6 +186,7 @@ class PublicationsDetailSerializer(serializers.ModelSerializer):
 
 class PublicationsListSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
     cover_image = serializers.SerializerMethodField()
     
     class Meta:
@@ -186,10 +196,11 @@ class PublicationsListSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'publication_type',
+            'publication_type_display',
             'issue_number',
-            'download_url',
             'volume',
             'isbn',
+            'download_url',
             'cover_image',
             'page_count',
             'publish_year',
@@ -208,6 +219,7 @@ class PublicationsListSerializer(serializers.ModelSerializer):
 
 class PublicationsDeletedListSerializer(serializers.ModelSerializer):
     post_title = serializers.CharField(source='post.title', read_only=True)
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
     cover_image = serializers.SerializerMethodField()
     
     class Meta:
@@ -217,6 +229,7 @@ class PublicationsDeletedListSerializer(serializers.ModelSerializer):
             'post',
             'post_title',
             'publication_type',
+            'publication_type_display',
             'issue_number',
             'volume',
             'isbn',
