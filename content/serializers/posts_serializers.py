@@ -139,7 +139,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
-            'author': {'required': True, 'error_messages': {'required': 'Author is required'}},
+            'author': {'required': False, 'allow_null': True},
             'tags': {'required': False},
             'featured_image': {'required': False, 'allow_null': True},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -180,13 +180,8 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
-    def validate_author(self, value):
-        if not value:
-            raise serializers.ValidationError("Author is required")
-        return value
-    
     def validate_content_type(self, value):
-        if not value:
+        if not value or value.strip() == '':
             raise serializers.ValidationError("Content type is required")
         
         if value not in dict(ContentType.choices).keys():
