@@ -61,7 +61,7 @@ WSGI_APPLICATION = "news_api.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # الآن سيكون داخل مجلد المشروع
+        'NAME': BASE_DIR / 'db.sqlite3', 
     }
 }
 
@@ -130,6 +130,6 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
-# Media files - تم التعديل هنا
+# Media files 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'  # استخدام Path بدلاً من os.path
+MEDIA_ROOT = BASE_DIR / 'media'  
