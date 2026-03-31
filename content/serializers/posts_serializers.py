@@ -1,6 +1,6 @@
 # content/serializers/posts_serializers.py
 from rest_framework import serializers
-from content.models import Posts, ContentType, Language, Tags
+from content.models import Posts, ContentType, Language, Tags, Authors, Categories
 import re
 import json
 
@@ -8,8 +8,9 @@ class PostsSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    author_name = serializers.CharField(source='author.full_name', read_only=True)
-    category_name = serializers.SerializerMethodField()
+    
+    author = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
     
     class Meta:
@@ -17,10 +18,8 @@ class PostsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'original_post',
-            'author',
-            'author_name',
-            'category',
-            'category_name',
+            'author',           
+            'category',        
             'content_type',
             'content_type_display',
             'language',
@@ -44,8 +43,6 @@ class PostsSerializer(serializers.ModelSerializer):
             'content': {'required': True, 'error_messages': {'required': 'Content is required'}},
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
-            'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
-            'author': {'required': True, 'error_messages': {'required': 'Author is required'}},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
             'meta_title': {'required': False, 'allow_null': True, 'allow_blank': True},
             'meta_description': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -55,6 +52,7 @@ class PostsSerializer(serializers.ModelSerializer):
         }
     
     def get_featured_image(self, obj):
+        """الحصول على رابط الصورة المميزة"""
         if obj.featured_image:
             request = self.context.get('request')
             if request:
@@ -62,18 +60,38 @@ class PostsSerializer(serializers.ModelSerializer):
             return obj.featured_image.url
         return None
     
-    def get_category_name(self, obj):
-        if obj.category:
+    def get_author(self, obj):
+        """إرجاع معلومات المؤلف كاملة"""
+        if obj.author and not obj.author.deleted_at:
             request = self.context.get('request')
-            if request:
-                language = request.query_params.get('lang', 'ar')
-                names = {
-                    'ar': obj.category.name_ar,
-                    'ku': obj.category.name_ku,
-                    'en': obj.category.name_en
-                }
-                return names.get(language, obj.category.name_ar)
-            return obj.category.name_ar
+            return {
+                'id': obj.author.id,
+                'full_name': obj.author.full_name,
+                'slug': obj.author.slug,
+                'bio': obj.author.bio,
+                'profile_image': self._get_author_image_url(obj.author, request),
+                'email': obj.author.email,
+                'created_at': obj.author.created_at,
+                'updated_at': obj.author.updated_at
+            }
+        return None
+    
+    def get_category(self, obj):
+        if obj.category and not obj.category.deleted_at:
+            request = self.context.get('request')
+            language = request.query_params.get('lang', 'ar') if request else 'ar'
+            
+            return {
+                'id': obj.category.id,
+                'slug': obj.category.slug,
+                'name': self._get_category_name(obj.category, language),
+                'name_ar': obj.category.name_ar,
+                'name_ku': obj.category.name_ku,
+                'name_en': obj.category.name_en,
+                'description': obj.category.description,
+                'created_at': obj.category.created_at,
+                'updated_at': obj.category.updated_at
+            }
         return None
     
     def get_tags(self, obj):
@@ -84,7 +102,7 @@ class PostsSerializer(serializers.ModelSerializer):
         return [
             {
                 'id': tag.id,
-                'name': self._get_tag_name(tag, language),  
+                'name': self._get_tag_name(tag, language),
                 'name_ar': tag.name_ar,
                 'name_ku': tag.name_ku,
                 'name_en': tag.name_en,
@@ -92,6 +110,21 @@ class PostsSerializer(serializers.ModelSerializer):
             }
             for tag in tags
         ]
+    
+    def _get_author_image_url(self, author, request):
+        if author.profile_image:
+            if request:
+                return request.build_absolute_uri(author.profile_image.url)
+            return author.profile_image.url
+        return None
+    
+    def _get_category_name(self, category, language):
+        names = {
+            'ar': category.name_ar,
+            'ku': category.name_ku,
+            'en': category.name_en
+        }
+        return names.get(language, category.name_ar)
     
     def _get_tag_name(self, tag, language):
         names = {
@@ -139,7 +172,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
-            'author': {'required': False, 'allow_null': True},
+            'author': {'required': True, 'error_messages': {'required': 'Author is required'}},
             'tags': {'required': False},
             'featured_image': {'required': False, 'allow_null': True},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -180,6 +213,11 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
+    def validate_author(self, value):
+        if not value:
+            raise serializers.ValidationError("Author is required")
+        return value
+    
     def validate_content_type(self, value):
         if not value or value.strip() == '':
             raise serializers.ValidationError("Content type is required")
@@ -217,6 +255,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
+        """التحقق الشامل من البيانات"""
         if self.instance is None:
             required_fields = ['title', 'content', 'author', 'category', 'content_type', 'language']
             for field in required_fields:
@@ -281,10 +320,10 @@ class PostsDetailSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    author_name = serializers.CharField(source='author.full_name', read_only=True)
-    author_slug = serializers.CharField(source='author.slug', read_only=True)
-    category_name = serializers.SerializerMethodField()
-    category_slug = serializers.CharField(source='category.slug', read_only=True)
+    
+    author = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    
     original_post_title = serializers.CharField(source='original_post.title', read_only=True)
     translations = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
@@ -302,18 +341,37 @@ class PostsDetailSerializer(serializers.ModelSerializer):
             return obj.featured_image.url
         return None
     
-    def get_category_name(self, obj):
-        if obj.category:
+    def get_author(self, obj):
+        if obj.author and not obj.author.deleted_at:
             request = self.context.get('request')
-            if request:
-                language = request.query_params.get('lang', 'ar')
-                names = {
-                    'ar': obj.category.name_ar,
-                    'ku': obj.category.name_ku,
-                    'en': obj.category.name_en
-                }
-                return names.get(language, obj.category.name_ar)
-            return obj.category.name_ar
+            return {
+                'id': obj.author.id,
+                'full_name': obj.author.full_name,
+                'slug': obj.author.slug,
+                'bio': obj.author.bio,
+                'profile_image': self._get_author_image_url(obj.author, request),
+                'email': obj.author.email,
+                'created_at': obj.author.created_at,
+                'updated_at': obj.author.updated_at
+            }
+        return None
+    
+    def get_category(self, obj):
+        if obj.category and not obj.category.deleted_at:
+            request = self.context.get('request')
+            language = request.query_params.get('lang', 'ar') if request else 'ar'
+            
+            return {
+                'id': obj.category.id,
+                'slug': obj.category.slug,
+                'name': self._get_category_name(obj.category, language),
+                'name_ar': obj.category.name_ar,
+                'name_ku': obj.category.name_ku,
+                'name_en': obj.category.name_en,
+                'description': obj.category.description,
+                'created_at': obj.category.created_at,
+                'updated_at': obj.category.updated_at
+            }
         return None
     
     def get_tags(self, obj):
@@ -324,7 +382,7 @@ class PostsDetailSerializer(serializers.ModelSerializer):
         return [
             {
                 'id': tag.id,
-                'name': self._get_tag_name(tag, language), 
+                'name': self._get_tag_name(tag, language),
                 'name_ar': tag.name_ar,
                 'name_ku': tag.name_ku,
                 'name_en': tag.name_en,
@@ -332,6 +390,29 @@ class PostsDetailSerializer(serializers.ModelSerializer):
             }
             for tag in tags
         ]
+    
+    def get_translations(self, obj):
+        if obj.original_post:
+            translations = Posts.objects.filter(original_post=obj.original_post)
+        else:
+            translations = Posts.objects.filter(original_post=obj)
+        
+        return PostsListSerializer(translations, many=True, context=self.context).data
+    
+    def _get_author_image_url(self, author, request):
+        if author.profile_image:
+            if request:
+                return request.build_absolute_uri(author.profile_image.url)
+            return author.profile_image.url
+        return None
+    
+    def _get_category_name(self, category, language):
+        names = {
+            'ar': category.name_ar,
+            'ku': category.name_ku,
+            'en': category.name_en
+        }
+        return names.get(language, category.name_ar)
     
     def _get_tag_name(self, tag, language):
         names = {
@@ -341,22 +422,14 @@ class PostsDetailSerializer(serializers.ModelSerializer):
         }
         return names.get(language, tag.name_ar)
 
-    
-    def get_translations(self, obj):
-        if obj.original_post:
-            translations = Posts.objects.filter(original_post=obj.original_post)
-        else:
-            translations = Posts.objects.filter(original_post=obj)
-        
-        return PostsListSerializer(translations, many=True, context=self.context).data
-
 
 class PostsListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    author_name = serializers.CharField(source='author.full_name', read_only=True)
-    category_name = serializers.SerializerMethodField()
+    
+    author = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
     
     class Meta:
@@ -366,9 +439,8 @@ class PostsListSerializer(serializers.ModelSerializer):
             'title',
             'excerpt',
             'featured_image',
-            'author_name',
-            'category_name',
-            'category',
+            'author',       
+            'category',     
             'tags',
             'content_type',
             'content_type_display',
@@ -388,18 +460,37 @@ class PostsListSerializer(serializers.ModelSerializer):
             return obj.featured_image.url
         return None
     
-    def get_category_name(self, obj):
-        if obj.category:
+    def get_author(self, obj):
+        if obj.author and not obj.author.deleted_at:
             request = self.context.get('request')
-            if request:
-                language = request.query_params.get('lang', 'ar')
-                names = {
-                    'ar': obj.category.name_ar,
-                    'ku': obj.category.name_ku,
-                    'en': obj.category.name_en
-                }
-                return names.get(language, obj.category.name_ar)
-            return obj.category.name_ar
+            return {
+                'id': obj.author.id,
+                'full_name': obj.author.full_name,
+                'slug': obj.author.slug,
+                'bio': obj.author.bio,
+                'profile_image': self._get_author_image_url(obj.author, request),
+                'email': obj.author.email,
+                'created_at': obj.author.created_at,
+                'updated_at': obj.author.updated_at
+            }
+        return None
+    
+    def get_category(self, obj):
+        if obj.category and not obj.category.deleted_at:
+            request = self.context.get('request')
+            language = request.query_params.get('lang', 'ar') if request else 'ar'
+            
+            return {
+                'id': obj.category.id,
+                'slug': obj.category.slug,
+                'name': self._get_category_name(obj.category, language),
+                'name_ar': obj.category.name_ar,
+                'name_ku': obj.category.name_ku,
+                'name_en': obj.category.name_en,
+                'description': obj.category.description,
+                'created_at': obj.category.created_at,
+                'updated_at': obj.category.updated_at
+            }
         return None
     
     def get_tags(self, obj):
@@ -410,11 +501,26 @@ class PostsListSerializer(serializers.ModelSerializer):
         return [
             {
                 'id': tag.id,
-                'name': self._get_tag_name(tag, language), 
+                'name': self._get_tag_name(tag, language),
                 'slug': tag.slug
             }
             for tag in tags
         ]
+    
+    def _get_author_image_url(self, author, request):
+        if author.profile_image:
+            if request:
+                return request.build_absolute_uri(author.profile_image.url)
+            return author.profile_image.url
+        return None
+    
+    def _get_category_name(self, category, language):
+        names = {
+            'ar': category.name_ar,
+            'ku': category.name_ku,
+            'en': category.name_en
+        }
+        return names.get(language, category.name_ar)
     
     def _get_tag_name(self, tag, language):
         names = {
@@ -429,8 +535,9 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    author_name = serializers.CharField(source='author.full_name', read_only=True)
-    category_name = serializers.SerializerMethodField()
+    
+    author = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
     
     class Meta:
@@ -440,8 +547,8 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
             'title',
             'excerpt',
             'featured_image',
-            'author_name',
-            'category_name',
+            'author',       
+            'category',     
             'tags',
             'content_type',
             'content_type_display',
@@ -462,9 +569,27 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
             return obj.featured_image.url
         return None
     
-    def get_category_name(self, obj):
-        if obj.category:
-            return obj.category.name_ar
+    def get_author(self, obj):
+        if obj.author and not obj.author.deleted_at:
+            request = self.context.get('request')
+            return {
+                'id': obj.author.id,
+                'full_name': obj.author.full_name,
+                'slug': obj.author.slug,
+                'profile_image': self._get_author_image_url(obj.author, request),
+
+            }
+        return None
+    
+    def get_category(self, obj):
+        if obj.category and not obj.category.deleted_at:
+            return {
+                'id': obj.category.id,
+                'slug': obj.category.slug,
+                'name_ar': obj.category.name_ar,
+                'name_ku': obj.category.name_ku,
+                'name_en': obj.category.name_en,
+            }
         return None
     
     def get_tags(self, obj):
@@ -479,3 +604,10 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
             }
             for tag in tags
         ]
+    
+    def _get_author_image_url(self, author, request):
+        if author.profile_image:
+            if request:
+                return request.build_absolute_uri(author.profile_image.url)
+            return author.profile_image.url
+        return None
