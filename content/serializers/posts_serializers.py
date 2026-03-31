@@ -368,6 +368,7 @@ class PostsListSerializer(serializers.ModelSerializer):
             'featured_image',
             'author_name',
             'category_name',
+            'category',
             'tags',
             'content_type',
             'content_type_display',

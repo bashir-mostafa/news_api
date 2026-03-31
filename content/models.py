@@ -396,10 +396,10 @@ class Publications(models.Model):
 class MediaFiles(models.Model):
     post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='media_files')
     file_type = models.CharField(
-            max_length=20, 
-            choices=MediaFileType.choices,  
-            verbose_name="نوع الملف"
-        )
+        max_length=20, 
+        choices=MediaFileType.choices,  # ✅ استخدام CharField بدلاً من MultipleChoiceField
+        verbose_name="نوع الملف"
+    )
     image_file = models.ImageField(
         upload_to='media_files/images/%Y/%m/%d/',
         null=True, blank=True, verbose_name="ملف الصورة"

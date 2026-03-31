@@ -59,3 +59,4 @@ from .events_serializers import (
     EventsDeletedListSerializer
 )
 from .publications_serializers import *
+from .media_files_serializers import *
