@@ -1,4 +1,6 @@
 # content/serializers/posts_serializers.py
+from datetime import timezone
+
 from rest_framework import serializers
 from content.models import Posts, ContentType, Language, Tags, Authors, Categories
 import re
@@ -50,7 +52,7 @@ class PostsSerializer(serializers.ModelSerializer):
             'published_at': {'required': False, 'allow_null': True},
             'original_post': {'required': False, 'allow_null': True},
         }
-    
+   
     def get_featured_image(self, obj):
         """الحصول على رابط الصورة المميزة"""
         if obj.featured_image:
