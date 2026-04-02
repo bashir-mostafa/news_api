@@ -35,8 +35,10 @@ class PostListCreateView(generics.ListCreateAPIView):
         queryset = Posts.objects.filter(deleted_at__isnull=True)
         id_ne = self.request.query_params.get('id_ne')
         if id_ne:
+            try:
                 queryset = queryset.exclude(id=int(id_ne))
-           
+            except ValueError:
+                pass
         content_type = self.request.query_params.get('content_type')
         if content_type:
             queryset = queryset.filter(content_type=content_type)

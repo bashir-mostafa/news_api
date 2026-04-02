@@ -31,7 +31,7 @@ class CommentsCreateUpdateSerializer(serializers.ModelSerializer):
             'name': {'required': True, 'error_messages': {'required': 'Name is required'}},
             'email': {'required': True, 'error_messages': {'required': 'Email is required'}},
             'comment': {'required': True, 'error_messages': {'required': 'Comment is required'}},
-            'is_approved': {'required': False, 'default': False},
+            'is_approved': {'required': False, 'default': True},
         }
     
     def validate_name(self, value):

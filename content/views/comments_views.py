@@ -1,7 +1,7 @@
 # content/views/comments_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -22,7 +22,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
     GET: /api/comments/
     POST: /api/comments/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'post', 'is_approved', 'name', 'email']
     pagination_class = CompactPagination
@@ -33,13 +33,11 @@ class CommentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Comments.objects.filter(deleted_at__isnull=True)
         
-        # تصفية حسب المقال
         post_id = self.request.query_params.get('post')
         if post_id:
             queryset = queryset.filter(post_id=post_id)
         
-        # للمستخدمين غير المسجلين، عرض التعليقات الموافق عليها فقط
-        if not self.request.user.is_staff:
+        if not self.request.user.is_authenticated or not self.request.user.is_staff:
             queryset = queryset.filter(is_approved=True)
         
         return queryset

@@ -54,7 +54,6 @@ class PostsSerializer(serializers.ModelSerializer):
         }
    
     def get_featured_image(self, obj):
-        """الحصول على رابط الصورة المميزة"""
         if obj.featured_image:
             request = self.context.get('request')
             if request:
@@ -63,7 +62,6 @@ class PostsSerializer(serializers.ModelSerializer):
         return None
     
     def get_author(self, obj):
-        """إرجاع معلومات المؤلف كاملة"""
         if obj.author and not obj.author.deleted_at:
             request = self.context.get('request')
             return {

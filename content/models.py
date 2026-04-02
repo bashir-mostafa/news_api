@@ -297,7 +297,7 @@ class Comments(models.Model):
     name = models.CharField(max_length=255, verbose_name="الاسم")
     email = models.EmailField(verbose_name="البريد الإلكتروني")
     comment = models.TextField(verbose_name="التعليق")
-    is_approved = models.BooleanField(default=False, verbose_name="موافق عليه")
+    is_approved = models.BooleanField(default=True, verbose_name="موافق عليه")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
