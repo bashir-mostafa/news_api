@@ -78,7 +78,6 @@ class TagsCreateUpdateSerializer(serializers.ModelSerializer):
             name_ar=validated_data['name_ar'],
             name_ku=validated_data['name_ku'],
             name_en=validated_data['name_en'],
-            slug=validated_data['slug'] 
         )
         return tag
     
@@ -86,7 +85,6 @@ class TagsCreateUpdateSerializer(serializers.ModelSerializer):
         instance.name_ar = validated_data.get('name_ar', instance.name_ar)
         instance.name_ku = validated_data.get('name_ku', instance.name_ku)
         instance.name_en = validated_data.get('name_en', instance.name_en)
-        instance.slug = validated_data.get('slug', instance.slug) 
         
         instance.save()
         return instance
