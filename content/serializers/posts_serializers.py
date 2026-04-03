@@ -320,7 +320,7 @@ class PostsDetailSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     
     original_post_title = serializers.CharField(source='original_post.title', read_only=True)
-    translations = serializers.SerializerMethodField()
+    original_post = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
     
     class Meta:
@@ -386,13 +386,13 @@ class PostsDetailSerializer(serializers.ModelSerializer):
             for tag in tags
         ]
     
-    def get_translations(self, obj):
+    def get_original_post(self, obj):
         if obj.original_post:
-            translations = Posts.objects.filter(original_post=obj.original_post)
+            original_post = Posts.objects.filter(original_post=obj.original_post)
         else:
-            translations = Posts.objects.filter(original_post=obj)
+            original_post = Posts.objects.filter(original_post=obj)
         
-        return PostsListSerializer(translations, many=True, context=self.context).data
+        return PostsListSerializer(original_post, many=True, context=self.context).data
     
     def _get_author_image_url(self, author, request):
         if author.profile_image:

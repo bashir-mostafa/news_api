@@ -430,9 +430,11 @@ class CommentsByPostView(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = CommentsListSerializer
     pagination_class = CompactPagination
-    filter_backends = [filters.OrderingFilter]  
+    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]  
     ordering_fields = ['created_at', 'name', 'is_approved']
     ordering = ['-created_at']
+    filterset_fields = ['is_approved']  
+
     
     def get_queryset(self):
         post_id = self.kwargs.get('post_id')
