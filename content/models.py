@@ -54,7 +54,9 @@ class Tags(models.Model):
     )
     slug = models.SlugField(
         max_length=255, 
-        unique=True,
+        unique=False,
+        null=True,
+        blank=True,
         verbose_name="الرابط المختصر",
     )
     created_at = models.DateTimeField(
@@ -82,6 +84,9 @@ class Authors(models.Model):
     slug = models.SlugField(
         max_length=255, 
         verbose_name="الرابط المختصر",
+        unique=False,
+        null=True,
+        blank=True,
     )
     bio = models.TextField(
         null=True,
@@ -118,6 +123,9 @@ class Categories(models.Model):
     slug = models.SlugField(
         max_length=255,
         verbose_name="الرابط المختصر",
+        unique=False,
+        null=True,
+        blank=True,
     )
     name_ar = models.CharField(
         max_length=255,
@@ -175,7 +183,9 @@ class Posts(models.Model):
     author = models.ForeignKey(
         'Authors',
         on_delete=models.SET_NULL,
+        unique=False,
         null=True,
+        blank=True,
         related_name='posts',
         verbose_name="الكاتب",
         db_column='author_id'

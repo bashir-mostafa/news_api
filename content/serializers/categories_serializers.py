@@ -39,21 +39,6 @@ class CategoriesCreateUpdateSerializer(serializers.ModelSerializer):
         #     'sort_order': {'required': False, 'allow_null': True},
         # }
     
-    def validate_slug(self, value):
-        if not value or value.strip() == '':
-            raise serializers.ValidationError("Slug is required")
-        
-        if not re.match(r'^[a-z0-9_-]+$', value):
-            raise serializers.ValidationError("Slug must contain only lowercase letters, numbers, hyphens and underscores")
-        
-        queryset = Categories.objects.all()
-        if self.instance:
-            queryset = queryset.exclude(id=self.instance.id)
-        
-        if queryset.filter(slug=value).exists():
-            raise serializers.ValidationError("Category with this slug already exists")
-        
-        return value
     
     def validate_name_ar(self, value):
         if not value or value.strip() == '':
@@ -85,7 +70,7 @@ class CategoriesCreateUpdateSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         if self.instance is None:
-            required_fields = ['slug', 'name_ar', 'name_ku', 'name_en']
+            required_fields = [ 'name_ar', 'name_ku', 'name_en']
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: "This field is required"})

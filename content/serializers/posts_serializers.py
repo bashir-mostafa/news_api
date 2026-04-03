@@ -172,7 +172,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
-            'author': {'required': True, 'error_messages': {'required': 'Author is required'}},
+            'author': {'required': False, 'error_messages': {'required': 'Author is required'}},
             'tags': {'required': False},
             'featured_image': {'required': False, 'allow_null': True},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -213,10 +213,6 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
-    def validate_author(self, value):
-        if not value:
-            raise serializers.ValidationError("Author is required")
-        return value
     
     def validate_content_type(self, value):
         if not value or value.strip() == '':
@@ -255,9 +251,8 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """التحقق الشامل من البيانات"""
         if self.instance is None:
-            required_fields = ['title', 'content', 'author', 'category', 'content_type', 'language']
+            required_fields = ['title', 'content', 'category', 'content_type', 'language']
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: f"{field.replace('_', ' ').title()} is required"})

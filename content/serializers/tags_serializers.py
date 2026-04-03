@@ -24,7 +24,6 @@ class TagsCreateUpdateSerializer(serializers.ModelSerializer):
             'name_ar': {'required': True, 'error_messages': {'required': 'Arabic name is required'}},
             'name_ku': {'required': True, 'error_messages': {'required': 'Kurdish name is required'}},
             'name_en': {'required': True, 'error_messages': {'required': 'English name is required'}},
-            'slug': {'required': True, 'error_messages': {'required': 'Slug is required'}},
         }
     
     def validate_name_ar(self, value):
@@ -63,25 +62,11 @@ class TagsCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_slug(self, value):
-        if not value or value.strip() == '':
-            raise serializers.ValidationError("Slug is required")
-        
-        import re
-        if not re.match(r'^[a-z0-9_-]+$', value):
-            raise serializers.ValidationError("Slug must contain only lowercase letters, numbers, hyphens and underscores")
-        
-        if self.instance and self.instance.slug == value:
-            return value
-        
-        if Tags.objects.filter(slug=value).exists():
-            raise serializers.ValidationError("Slug already exists")
-        
-        return value
+   
     
     def validate(self, data):
         if self.instance is None:
-            required_fields = ['name_ar', 'name_ku', 'name_en', 'slug']
+            required_fields = ['name_ar', 'name_ku', 'name_en']
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: f"This field is required"})

@@ -23,7 +23,7 @@ class AuthorsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {
             'full_name': {'required': True, 'error_messages': {'required': 'Full name is required'}},
-            'slug': {'required': True, 'error_messages': {'required': 'Slug is required'}},
+            'slug': {'required': False, 'error_messages': {'required': 'Slug is required'}},
             'bio': {'required': False, 'allow_null': True}, 
             'email': {'required': False, 'allow_null': True, 'allow_blank': True},  
             'profile_image': {'required': False, 'allow_null': True}, 
@@ -43,7 +43,7 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
         fields = ['full_name', 'slug', 'bio', 'profile_image', 'email']
         extra_kwargs = {
             'full_name': {'required': True, 'error_messages': {'required': 'Full name is required'}},
-            'slug': {'required': True, 'error_messages': {'required': 'Slug is required'}},
+            'slug': {'required': False, 'error_messages': {'required': 'Slug is required'}},
             'bio': {'required': False, 'allow_null': True, 'allow_blank': True},
             'email': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
@@ -62,18 +62,6 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_slug(self, value):
-        if not value or value.strip() == '':
-            raise serializers.ValidationError("Slug is required")
-        
-        if not re.match(r'^[a-z0-9_-]+$', value):
-            raise serializers.ValidationError("Slug must contain only lowercase letters, numbers, hyphens and underscores")
-        
-        if self.instance and self.instance.slug == value:
-            return value
-        
-        
-        
         return value
     
     def validate_email(self, value):
@@ -92,7 +80,7 @@ class AuthorsCreateUpdateSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         if self.instance is None:
-            required_fields = ['full_name', 'slug']
+            required_fields = ['full_name']
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: "This field is required"})

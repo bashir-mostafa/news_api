@@ -426,13 +426,13 @@ class CommentUnapproveView(APIView):
 
 # ============ GET COMMENTS BY POST ============
 class CommentsByPostView(generics.ListAPIView):
-    """
-    عرض تعليقات مقال محدد
-    GET: /api/comments/by-post/{post_id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+   
+    permission_classes = [AllowAny]
     serializer_class = CommentsListSerializer
     pagination_class = CompactPagination
+    filter_backends = [filters.OrderingFilter]  
+    ordering_fields = ['created_at', 'name', 'is_approved']
+    ordering = ['-created_at']
     
     def get_queryset(self):
         post_id = self.kwargs.get('post_id')
