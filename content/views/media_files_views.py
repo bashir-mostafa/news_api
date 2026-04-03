@@ -55,9 +55,6 @@ class MediaFileListCreateView(generics.ListCreateAPIView):
         context.update({"request": self.request})
         return context
     
-    def perform_create(self, serializer):
-        serializer.save()
-    
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
@@ -190,10 +187,6 @@ class MediaFileRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class MediaFileHardDeleteView(generics.DestroyAPIView):
-    """
-    حذف نهائي لملف وسائط (للمشرفين فقط)
-    DELETE: /api/media-files/hard-delete/{id}/
-    """
     permission_classes = [IsAuthenticated, IsAdminUser]
     lookup_field = 'id'
     queryset = MediaFiles.objects.all()
@@ -215,10 +208,6 @@ class MediaFileHardDeleteView(generics.DestroyAPIView):
 
 
 class MediaFileBulkHardDeleteView(APIView):
-    """
-    حذف نهائي لمجموعة ملفات وسائط (للمشرفين فقط)
-    DELETE: /api/media-files/bulk-hard-delete/
-    """
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def delete(self, request):
@@ -253,10 +242,6 @@ class MediaFileBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class MediaFileRestoreView(APIView):
-    """
-    استعادة ملف وسائط محذوف
-    POST: /api/media-files/restore/{id}/
-    """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request, id):
@@ -283,10 +268,6 @@ class MediaFileRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class MediaFileBulkDeleteView(APIView):
-    """
-    حذف ناعم لمجموعة ملفات وسائط
-    DELETE: /api/media-files/bulk-delete/
-    """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def delete(self, request):
@@ -319,10 +300,6 @@ class MediaFileBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class MediaFileBulkRestoreView(APIView):
-    """
-    استعادة مجموعة ملفات وسائط محذوفة
-    POST: /api/media-files/bulk-restore/
-    """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post(self, request):
@@ -355,16 +332,12 @@ class MediaFileBulkRestoreView(APIView):
 
 # ============ GET DELETED MEDIA FILES ============
 class MediaFileDeletedListView(generics.ListAPIView):
-    """
-    عرض قائمة ملفات الوسائط المحذوفة
-    GET: /api/media-files/deleted/
-    """
     permission_classes = [IsAuthenticatedOrReadOnly]
     serializer_class = MediaFilesDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'file_type']
     search_fields = ['alt_text', 'caption']
-    ordering_fields = ['deleted_at', 'created_at', 'file_size_kb']
+    ordering_fields = ['deleted_at', 'created_at']
     ordering = ['-deleted_at']
     pagination_class = CompactPagination
     

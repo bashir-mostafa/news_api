@@ -240,25 +240,14 @@ urlpatterns = [
     # Hard Delete
     path('publications/<int:id>/hard-delete/', publications_views.PublicationHardDeleteView.as_view(), name='publication-hard-delete'),
 
-     # ============ MEDIA FILES URLs ============
-    # Basic CRUD
+  # ============ MEDIA FILES URLs ============
     path('media-files/', media_files_views.MediaFileListCreateView.as_view(), name='media-file-list-create'),
     path('media-files/<int:id>/', media_files_views.MediaFileRetrieveUpdateDeleteView.as_view(), name='media-file-detail'),
-    
-    # Deleted Media Files
     path('media-files/deleted/', media_files_views.MediaFileDeletedListView.as_view(), name='media-file-deleted-list'),
-    
-    # Get Media Files by Post
     path('media-files/by-post/<int:post_id>/', media_files_views.MediaFilesByPostView.as_view(), name='media-files-by-post'),
-    
-    # Restore
-    path('media-files/restore/<int:id>/', media_files_views.MediaFileRestoreView.as_view(), name='media-file-restore'),
-    
-    # Bulk Operations
+    path('media-files/<int:id>/restore/', media_files_views.MediaFileRestoreView.as_view(), name='media-file-restore'),
     path('media-files/bulk-delete/', media_files_views.MediaFileBulkDeleteView.as_view(), name='media-file-bulk-delete'),
     path('media-files/bulk-restore/', media_files_views.MediaFileBulkRestoreView.as_view(), name='media-file-bulk-restore'),
     path('media-files/bulk-hard-delete/', media_files_views.MediaFileBulkHardDeleteView.as_view(), name='media-file-bulk-hard-delete'),
-    
-    # Hard Delete
-    path('media-files/hard-delete/<int:id>/', media_files_views.MediaFileHardDeleteView.as_view(), name='media-file-hard-delete'),
+    path('media-files/<int:id>/hard-delete/', media_files_views.MediaFileHardDeleteView.as_view(), name='media-file-hard-delete'),
 ]

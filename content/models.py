@@ -404,36 +404,72 @@ class Publications(models.Model):
     
 
 class MediaFiles(models.Model):
-    post = models.ForeignKey(Posts, on_delete=models.CASCADE, related_name='media_files')
+    post = models.ForeignKey(
+        Posts, 
+        on_delete=models.CASCADE, 
+        related_name='media_files',
+        verbose_name="المقال"
+    )
+    
     file_type = models.CharField(
         max_length=20, 
-        choices=MediaFileType.choices,  # ✅ استخدام CharField بدلاً من MultipleChoiceField
+        choices=MediaFileType.choices,  
         verbose_name="نوع الملف"
     )
-    image_file = models.ImageField(
-        upload_to='media_files/images/%Y/%m/%d/',
-        null=True, blank=True, verbose_name="ملف الصورة"
+    
+    src = models.FileField(
+        upload_to='media_files/%Y/%m/%d/',
+        null=True, 
+        blank=True, 
+        verbose_name="الملف"
     )
-    video_url = models.URLField(null=True, blank=True, verbose_name="رابط الفيديو")
-    audio_file = models.FileField(
-        upload_to='media_files/audio/%Y/%m/%d/',
-        null=True, blank=True, verbose_name="ملف الصوت"
+
+    external_url = models.URLField(
+        null=True, blank=True,
+        verbose_name="رابط خارجي"
     )
-    document_file = models.FileField(
-        upload_to='media_files/docs/%Y/%m/%d/',
-        null=True, blank=True, verbose_name="ملف PDF أو مستند"
+    
+    alt_text = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        verbose_name="النص البديل"
     )
-    alt_text = models.CharField(max_length=255, null=True, blank=True, verbose_name="النص البديل")
-    caption = models.CharField(max_length=255, null=True, blank=True, verbose_name="الشرح")
-    mime_type = models.CharField(max_length=50, null=True, blank=True, verbose_name="نوع MIME")
-    file_size_kb = models.IntegerField(null=True, blank=True, verbose_name="حجم الملف (KB)")
+    
+    caption = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        verbose_name="الشرح"
+    )
+    
+    mime_type = models.CharField(
+        max_length=50, 
+        null=True, 
+        blank=True, 
+        verbose_name="نوع MIME"
+    )
+    
+    file_size_kb = models.IntegerField(
+        null=True, 
+        blank=True, 
+        verbose_name="حجم الملف (KB)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="تاريخ الحذف")
+    
     class Meta:
         db_table = 'content_media_files'
         verbose_name = "ملف وسائط"
         verbose_name_plural = "ملفات الوسائط"
         ordering = ['-created_at']
+    
     def __str__(self):
         return f"Media file for {self.post.title}: {self.file_type}"
+    
+    def get_url(self):
+        if self.src:
+            return self.src.url
+        return None
