@@ -419,7 +419,7 @@ class PostsListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    
+    original_post = serializers.SerializerMethodField()
     author = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
@@ -441,9 +441,24 @@ class PostsListSerializer(serializers.ModelSerializer):
             'view_count',
             'published_at',
             'is_published',
+            'original_post', 
             'created_at'
         ]
-    
+    def get_original_post(self, obj):
+        if obj.original_post:
+            request = self.context.get('request')
+            original = obj.original_post
+            return {
+                'id': original.id,
+                'title': original.title,
+                'excerpt': original.excerpt,
+                'featured_image': self.get_featured_image(original),
+                'language': original.language,
+                'language_display': original.get_language_display(),
+                'published_at': original.published_at,
+                'is_published': original.is_published,
+            }
+        return None
     def get_featured_image(self, obj):
         if obj.featured_image:
             request = self.context.get('request')
