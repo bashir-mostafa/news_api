@@ -11,6 +11,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from ..filters import UserFilter
 from ..pagination import CompactPagination, KoreanStylePagination, PageNumberPaginationWithRange
+from datetime import datetime
 
 # ============ LIST & CREATE ============
 class UserListCreateAPIView(generics.ListCreateAPIView):
@@ -23,6 +24,25 @@ class UserListCreateAPIView(generics.ListCreateAPIView):
     search_fields = ['username', 'email', 'full_name']
     ordering_fields = ['created_at', 'username', 'role']
     ordering = ['-created_at'] 
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        created_at_gte = self.request.query_params.get('createdAt_gte')
+        created_at_lte = self.request.query_params.get('createdAt_lte')
+        
+        if created_at_gte:
+            dt = datetime.strptime(created_at_gte, '%Y-%m-%d')
+            aware_dt = timezone.make_aware(dt)
+            queryset = queryset.filter(created_at__gte=aware_dt)
+        
+        if created_at_lte:
+            dt = datetime.strptime(created_at_lte, '%Y-%m-%d')
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            aware_dt = timezone.make_aware(dt)
+            queryset = queryset.filter(created_at__lte=aware_dt)
+        
+        return queryset
     
     def get_serializer_class(self):
         if self.request.method == 'GET':

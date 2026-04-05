@@ -10,7 +10,7 @@ urlpatterns = [
     path('logout/', logout_view.LogoutAPIView.as_view(), name='logout'),
     
     # ============ البروفايل الشخصي ============
-    path('profile/', user_view.UserProfileAPIView.as_view(), name='profile'),
+    path('me/', user_view.UserProfileAPIView.as_view(), name='profile'),
     
     # ============ عمليات المستخدمين الأساسية ============
     # list (GET) and create (POST)

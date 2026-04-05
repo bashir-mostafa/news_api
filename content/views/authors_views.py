@@ -1,3 +1,5 @@
+from datetime import datetime
+from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
@@ -24,7 +26,42 @@ class AuthorListCreateView(generics.ListCreateAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Authors.objects.filter(deleted_at__isnull=True)
+        queryset = Authors.objects.filter(deleted_at__isnull=True)
+        
+        created_at_gte = self.request.query_params.get('createdAt_gte')
+        created_at_lte = self.request.query_params.get('createdAt_lte')
+        
+        if created_at_gte:
+            try:
+                dt = datetime.strptime(created_at_gte, '%Y-%m-%d')
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__gte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        if created_at_lte:
+            try:
+                dt = datetime.strptime(created_at_lte, '%Y-%m-%d')
+                dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__lte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        filter_fields = {
+            'full_name': 'full_name',
+            'email': 'email',
+            'slug': 'slug',
+            'bio': 'bio'
+        }
+        
+        for param, field in filter_fields.items():
+            value = self.request.query_params.get(param)
+            if value:
+                queryset = queryset.filter(**{f'{field}__icontains': value})
+        
+        return queryset
+        
     
     def get_serializer_class(self):
         if self.request.method == 'GET':

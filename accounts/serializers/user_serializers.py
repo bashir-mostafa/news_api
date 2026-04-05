@@ -20,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id','username', 'email', 'password', 'full_name', 'role',
             'is_active', 'created_at', 'created_by', 'created_by_username'
         ]
-        read_only_fields = ['id', 'is_active', 'created_at', 'created_by', 'created_by_username']
+        read_only_fields = ['id', 'created_at', 'created_by', 'created_by_username']
         extra_kwargs = {
             'username': {'required': True},
             'email': {'required': True},
@@ -42,24 +42,17 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        """
-        التحقق من البريد الإلكتروني
-        """
         if not value or value.strip() == '':
             raise serializers.ValidationError("the email is required")
         
         if self.instance and self.instance.email == value:
             return value
         
-        if CustomUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("the email is already exists")
         
         return value
 
     def validate_password(self, value):
-        """
-        التحقق من كلمة المرور
-        """
+
         if not value:
             raise serializers.ValidationError("the password is required")
         
@@ -69,17 +62,11 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_full_name(self, value):
-        """
-        التحقق من الاسم الكامل (اختياري)
-        """
         if value and len(value) < 3:
             raise serializers.ValidationError("the full name must be at least 3 characters long")
         return value
 
     def validate(self, data):
-        """
-        تحقق إضافي على مستوى الكائن
-        """
         if self.instance is None and 'password' and 'username' and 'email' not in data:
             raise serializers.ValidationError("كلمة المرور مطلوبة عند إنشاء مستخدم جديد")
         return data

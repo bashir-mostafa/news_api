@@ -1,4 +1,6 @@
 # content/views/posts_views.py
+from datetime import datetime
+from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
@@ -18,14 +20,9 @@ from content.serializers import (
 
 # ============ LIST & CREATE ============
 class PostListCreateView(generics.ListCreateAPIView):
-    """
-    عرض قائمة المقالات وإنشاء مقال جديد
-    GET: /api/posts/
-    POST: /api/posts/
-    """
+
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['id', 'is_published', 'content_type', 'language', 'author', 'category']
     pagination_class = CompactPagination
     search_fields = ['title', 'excerpt', 'content', 'meta_title', 'meta_description']
     ordering_fields = ['created_at', 'published_at', 'view_count', 'title', 'updated_at']
@@ -33,6 +30,7 @@ class PostListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         queryset = Posts.objects.filter(deleted_at__isnull=True)
+
         id_ne = self.request.query_params.get('id_ne')
         if id_ne:
             try:
@@ -52,7 +50,64 @@ class PostListCreateView(generics.ListCreateAPIView):
                 is_published=True,
                 published_at__lte=timezone.now()
             )
+        title = self.request.query_params.get('title')
+        if title:
+            queryset = queryset.filter(title__icontains=title)
         
+        excerpt = self.request.query_params.get('excerpt')
+        if excerpt:
+            queryset = queryset.filter(excerpt__icontains=excerpt)
+        
+        content_type = self.request.query_params.get('content_type')
+        if content_type:
+            queryset = queryset.filter(content_type=content_type)
+        
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category_id=category)
+        
+        tags = self.request.query_params.get('tags')
+        if tags:
+            if ',' in tags:
+                tags_list = tags.split(',')
+                queryset = queryset.filter(tags__id__in=tags_list).distinct()
+            else:
+                queryset = queryset.filter(tags__id=tags)
+        
+        author = self.request.query_params.get('author')
+        if author:
+            queryset = queryset.filter(author_id=author)
+        
+        language = self.request.query_params.get('language')
+        if language:
+            queryset = queryset.filter(language=language)
+        
+        is_published = self.request.query_params.get('is_published')
+        if is_published is not None:
+            if is_published.lower() == 'true':
+                queryset = queryset.filter(is_published=True)
+            elif is_published.lower() == 'false':
+                queryset = queryset.filter(is_published=False)
+        
+        created_at_gte = self.request.query_params.get('created_at_gte')
+        created_at_lte = self.request.query_params.get('created_at_lte')
+        
+        if created_at_gte:
+            try:
+                dt = datetime.strptime(created_at_gte, '%Y-%m-%d')
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__gte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        if created_at_lte:
+            try:
+                dt = datetime.strptime(created_at_lte, '%Y-%m-%d')
+                dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__lte=aware_dt)
+            except (ValueError, TypeError):
+                pass
         return queryset
     
     def get_serializer_class(self):

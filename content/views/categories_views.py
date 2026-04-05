@@ -1,3 +1,5 @@
+from datetime import datetime
+from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
@@ -17,14 +19,48 @@ from content.serializers import (
 class CategoryListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['id']
     pagination_class = CompactPagination
     search_fields = ['name_ar', 'name_ku', 'name_en', 'description']
     ordering_fields = ['created_at', 'name_ar', 'name_en', 'name_ku', 'slug']
     ordering = ['name_ar']
     
     def get_queryset(self):
-        return Categories.objects.filter(deleted_at__isnull=True)
+        queryset = Categories.objects.filter(deleted_at__isnull=True)
+        
+        created_at_gte = self.request.query_params.get('createdAt_gte')
+        created_at_lte = self.request.query_params.get('createdAt_lte')
+        
+        if created_at_gte:
+            try:
+                dt = datetime.strptime(created_at_gte, '%Y-%m-%d')
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__gte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        if created_at_lte:
+            try:
+                dt = datetime.strptime(created_at_lte, '%Y-%m-%d')
+                dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__lte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        name_ar = self.request.query_params.get('name_ar')
+        name_en = self.request.query_params.get('name_en')
+        name_ku = self.request.query_params.get('name_ku')
+        
+        if name_ar:
+            queryset = queryset.filter(name_ar__icontains=name_ar)
+        
+        if name_en:
+            queryset = queryset.filter(name_en__icontains=name_en)
+        
+        if name_ku:
+            queryset = queryset.filter(name_ku__icontains=name_ku)
+        
+        return queryset
     
     def get_serializer_class(self):
         if self.request.method == 'GET':
