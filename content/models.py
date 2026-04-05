@@ -235,7 +235,9 @@ class Posts(models.Model):
     
     content = models.TextField(
         verbose_name="المحتوى",
-        help_text="المحتوى الرئيسي للمقال"
+        help_text="المحتوى الرئيسي للمقال",
+        null=True,
+        blank=True,
     )
     
     content_type = models.CharField(

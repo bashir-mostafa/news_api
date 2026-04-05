@@ -42,7 +42,6 @@ class PostsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'view_count', 'created_at', 'updated_at']
         extra_kwargs = {
             'title': {'required': True, 'error_messages': {'required': 'Title is required'}},
-            'content': {'required': True, 'error_messages': {'required': 'Content is required'}},
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -168,7 +167,6 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'title': {'required': True, 'error_messages': {'required': 'Title is required'}},
-            'content': {'required': True, 'error_messages': {'required': 'Content is required'}},
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
@@ -214,14 +212,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     
-    def validate_content_type(self, value):
-        if not value or value.strip() == '':
-            raise serializers.ValidationError("Content type is required")
-        
-        if value not in dict(ContentType.choices).keys():
-            raise serializers.ValidationError(f"Invalid content type. Choices: {', '.join(dict(ContentType.choices).keys())}")
-        
-        return value
+    
     
     def validate_language(self, value):
         if not value:
@@ -244,15 +235,11 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_content(self, value):
-        if not value or value.strip() == '':
-            raise serializers.ValidationError("Content is required")
-        
-        return value
+   
     
     def validate(self, data):
         if self.instance is None:
-            required_fields = ['title', 'content', 'category', 'content_type', 'language']
+            required_fields = ['title', 'category', 'content_type', 'language']
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: f"{field.replace('_', ' ').title()} is required"})

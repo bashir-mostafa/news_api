@@ -3,7 +3,7 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -21,7 +21,7 @@ from content.serializers import (
 # ============ LIST & CREATE ============
 class PostListCreateView(generics.ListCreateAPIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = CompactPagination
     search_fields = ['title', 'excerpt', 'content', 'meta_title', 'meta_description']
@@ -174,7 +174,7 @@ class PostRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     PATCH: /api/posts/{id}/
     DELETE: /api/posts/{id}/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -270,7 +270,7 @@ class PostHardDeleteView(generics.DestroyAPIView):
     حذف نهائي لمقال (للمشرفين فقط)
     DELETE: /api/posts/hard-delete/{id}/
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = Posts.objects.all()
     
@@ -292,7 +292,7 @@ class PostHardDeleteView(generics.DestroyAPIView):
 
 class PostBulkHardDeleteView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         post_ids = request.data.get('ids', [])
@@ -329,7 +329,7 @@ class PostBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class PostRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -355,7 +355,7 @@ class PostRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class PostBulkDeleteView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         post_ids = request.data.get('ids', [])
@@ -387,7 +387,7 @@ class PostBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class PostBulkRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         post_ids = request.data.get('ids', [])
@@ -419,7 +419,7 @@ class PostBulkRestoreView(APIView):
 
 # ============ GET DELETED POSTS ============
 class PostDeletedListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     serializer_class = PostsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['content_type', 'language', 'author', 'category']
@@ -439,7 +439,7 @@ class PostDeletedListView(generics.ListAPIView):
 
 # ============ POST STATISTICS ============
 class PostStatisticsView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def get(self, request):
         total_posts = Posts.objects.filter(deleted_at__isnull=True).count()
@@ -488,7 +488,7 @@ class PostStatisticsView(APIView):
 
 # ============ PUBLISH / UNPUBLISH POST ============
 class PostPublishView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -515,7 +515,7 @@ class PostPublishView(APIView):
 
 
 class PostUnpublishView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -541,7 +541,7 @@ class PostUnpublishView(APIView):
 
 # ============ INCREMENT VIEW COUNT ============
 class PostIncrementViewView(APIView):
-    permission_classes = []  # Allow anyone to increment view count
+    permission_classes = [AllowAny]  # Allow anyone to increment view count
     
     def post(self, request, id):
         try:
@@ -566,7 +566,7 @@ class PostIncrementViewView(APIView):
 
 # ============ GET POSTS BY ID ============
 class PostByIdView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def get(self, request, id):
         try:

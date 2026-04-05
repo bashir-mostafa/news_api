@@ -1,7 +1,7 @@
 # content/views/media_files_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from news_api.permission import IsAdmin, IsAuthenticatedOrReadOnly
+from news_api.permission import IsAdmin, IsAdminOrReadOnly
 from content.models import MediaFiles
 from rest_framework.views import APIView
 from django.utils import timezone
@@ -23,7 +23,7 @@ class MediaFileListCreateView(generics.ListCreateAPIView):
     GET: /api/media-files/
     POST: /api/media-files/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'post', 'file_type']
     pagination_class = CompactPagination
@@ -110,7 +110,7 @@ class MediaFileRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     PATCH: /api/media-files/{id}/
     DELETE: /api/media-files/{id}/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -244,7 +244,7 @@ class MediaFileBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class MediaFileRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -270,7 +270,7 @@ class MediaFileRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class MediaFileBulkDeleteView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         media_ids = request.data.get('ids', [])
@@ -302,7 +302,7 @@ class MediaFileBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class MediaFileBulkRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         media_ids = request.data.get('ids', [])
@@ -334,7 +334,7 @@ class MediaFileBulkRestoreView(APIView):
 
 # ============ GET DELETED MEDIA FILES ============
 class MediaFileDeletedListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     serializer_class = MediaFilesDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'file_type']
@@ -355,7 +355,7 @@ class MediaFileDeletedListView(generics.ListAPIView):
 # ============ GET MEDIA FILES BY POST ============
 class MediaFilesByPostView(generics.ListAPIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     serializer_class = MediaFilesListSerializer
     pagination_class = CompactPagination
     
