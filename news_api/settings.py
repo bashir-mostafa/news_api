@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts.apps.AccountsConfig",
     "content.apps.ContentConfig",
+    "backup_api.apps.BackupApiConfig",
 ]
 
 MIDDLEWARE = [
@@ -129,7 +130,10 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
-
-# Media files 
+BACKUP_CONFIG = {
+    'BACKUP_DIR': BASE_DIR / 'backups',
+    'MAX_BACKUP_FILES': 5, 
+    'ALLOWED_APPS': ['accounts', 'content'],  
+}
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  

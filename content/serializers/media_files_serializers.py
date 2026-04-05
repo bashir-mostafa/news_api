@@ -186,6 +186,8 @@ class MediaFilesListSerializer(serializers.ModelSerializer):
             'file_type',
             'file_type_display',
             'src_url',
+            'external_url',
+            'src',
             'alt_text',
             'caption',
             'file_size_kb',
