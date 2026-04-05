@@ -2,7 +2,6 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -14,10 +13,11 @@ from content.serializers import (
     CategoriesDetailSerializer,
     CategoriesListSerializer
 )
+from news_api.permission import IsAdminOrReadOnly, IsAdmin
 
 # ============ LIST & CREATE ============
 class CategoryListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = CompactPagination
     search_fields = ['name_ar', 'name_ku', 'name_en', 'description']
@@ -113,7 +113,7 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -186,7 +186,7 @@ class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class CategoryHardDeleteView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -209,10 +209,8 @@ class CategoryHardDeleteView(generics.DestroyAPIView):
 
 
 class CategoryBulkHardDeleteView(APIView):
-    """
-    Bulk hard delete categories (permanent deletion - admin only)
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         category_ids = request.data.get('ids', [])
@@ -251,7 +249,7 @@ class CategoryBulkHardDeleteView(APIView):
     
 # ============ RESTORE DELETED ============
 class CategoryRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def post(self, request, id):
         try:
@@ -277,7 +275,7 @@ class CategoryRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class CategoryBulkDeleteView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         category_ids = request.data.get('ids', [])
@@ -309,7 +307,7 @@ class CategoryBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class CategoryBulkRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request):
         category_ids = request.data.get('ids', [])

@@ -2,7 +2,7 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,7 +17,7 @@ from content.serializers import (
 
 # ============ LIST & CREATE ============
 class AuthorListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id']
     pagination_class = CompactPagination
@@ -114,7 +114,7 @@ class AuthorListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -187,7 +187,7 @@ class AuthorRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class AuthorHardDeleteView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -211,7 +211,7 @@ class AuthorHardDeleteView(generics.DestroyAPIView):
 
 class AuthorBulkHardDeleteView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         author_ids = request.data.get('ids', [])
@@ -250,7 +250,7 @@ class AuthorBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class AuthorRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def post(self, request, id):
         try:
@@ -276,7 +276,7 @@ class AuthorRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class AuthorBulkDeleteView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         author_ids = request.data.get('ids', [])
@@ -308,7 +308,7 @@ class AuthorBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class AuthorBulkRestoreView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request):
         author_ids = request.data.get('ids', [])

@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 
 class ContentType(models.TextChoices):
@@ -468,7 +470,21 @@ class MediaFiles(models.Model):
     
     def __str__(self):
         return f"Media file for {self.post.title}: {self.file_type}"
+    def delete_physical_file(self):
+        if self.src and not self.external_url:
+            try:
+                if os.path.isfile(self.src.path):
+                    os.remove(self.src.path)
+                    return True, "File deleted successfully"
+                else:
+                    return False, "File not found on disk"
+            except Exception as e:
+                return False, str(e)
+        return True, "No physical file to delete (external URL)"
     
+    def hard_delete(self):
+        self.delete_physical_file()
+        self.delete()
     def get_url(self):
         if self.src:
             return self.src.url

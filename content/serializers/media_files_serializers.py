@@ -97,7 +97,6 @@ class MediaFilesCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """التحقق من أن src أو external_url موجود"""
         if self.instance is None:
             required_fields = ['post', 'file_type']
             for field in required_fields:
@@ -107,10 +106,10 @@ class MediaFilesCreateUpdateSerializer(serializers.ModelSerializer):
         src = data.get('src')
         external_url = data.get('external_url')
         
-        if not src and not external_url:
-            raise serializers.ValidationError({
-                'src': 'Either file or external URL is required'
-            })
+        # if not src and not external_url:
+        #     raise serializers.ValidationError({
+        #         'src': 'Either file or external URL is required'
+        #     })
         
         return data
     

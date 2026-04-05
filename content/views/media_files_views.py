@@ -1,7 +1,8 @@
 # content/views/media_files_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAuthenticatedOrReadOnly
+from content.models import MediaFiles
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -187,7 +188,7 @@ class MediaFileRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class MediaFileHardDeleteView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = MediaFiles.objects.all()
     
@@ -195,10 +196,11 @@ class MediaFileHardDeleteView(generics.DestroyAPIView):
         try:
             instance = self.get_object()
             media_id = instance.id
-            instance.delete()
+            
+            instance.hard_delete()
             
             return Response({
-                "message": f"media file '{media_id}' deleted permanently successfully"
+                "message": f"Media file '{media_id}' deleted permanently successfully"
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -208,7 +210,7 @@ class MediaFileHardDeleteView(generics.DestroyAPIView):
 
 
 class MediaFileBulkHardDeleteView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         media_ids = request.data.get('ids', [])
@@ -352,10 +354,7 @@ class MediaFileDeletedListView(generics.ListAPIView):
 
 # ============ GET MEDIA FILES BY POST ============
 class MediaFilesByPostView(generics.ListAPIView):
-    """
-    عرض ملفات وسائط مقال محدد
-    GET: /api/media-files/by-post/{post_id}/
-    """
+
     permission_classes = [IsAuthenticatedOrReadOnly]
     serializer_class = MediaFilesListSerializer
     pagination_class = CompactPagination

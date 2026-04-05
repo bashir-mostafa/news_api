@@ -1,9 +1,27 @@
+# news/permissions.py
 from rest_framework import permissions
-from django.conf import settings
 
+class IsAdminOrReadOnly(permissions.BasePermission):
+  
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_authenticated and getattr(request.user, 'role', None) == 'admin'
+    
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_authenticated and getattr(request.user, 'role', None) == 'admin'
+    
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role == 'admin')
-
-
+        return request.user and request.user.is_authenticated and getattr(request.user, 'role', None) == 'admin'
+    
+class AllowAny(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return True
+class IsAuthenticatedOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_authenticated

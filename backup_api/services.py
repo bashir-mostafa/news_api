@@ -13,6 +13,7 @@ from django.core.management import call_command
 from django.core.management.commands import dumpdata, loaddata
 from django.db import connection
 from io import StringIO
+from datetime import datetime, timezone
 
 class BackupService:
     
@@ -28,18 +29,23 @@ class BackupService:
         self.db_host = self.db_settings.get('HOST', 'localhost')
         self.db_port = self.db_settings.get('PORT', '5432')
     
+    # backup_api/services.py
+
+
     def create_backup(self, app_names=None, compress=True, exclude=None, include_media=True):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"backup_{timestamp}"
+        timestamp_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         
-        temp_backup_dir = self.backup_dir / f"temp_{timestamp}"
+        timestamp_file = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f"backup_{timestamp_file}"
+        
+        temp_backup_dir = self.backup_dir / f"temp_{timestamp_file}"
         temp_backup_dir.mkdir(parents=True, exist_ok=True)
         
         result = {
             'success': True,
             'database_backup': None,
             'media_backup': None,
-            'created_at': timestamp
+            'created_at': timestamp_iso  
         }
         
         try:
@@ -323,12 +329,14 @@ class BackupService:
         for file in sorted(self.backup_dir.glob('backup_*.tar.gz'), reverse=True):
             stat = file.stat()
             
+            created_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat().replace('+00:00', 'Z')
+            
             backup_type = self.get_backup_type(file)
             
             backups.append({
                 'filename': file.name,
                 'size': self.get_file_size(file),
-                'created_at': datetime.fromtimestamp(stat.st_mtime),
+                'created_at': created_at,  
                 'file_path': str(file),
                 'type': backup_type
             })
@@ -401,98 +409,110 @@ class BackupService:
 #         self.db_port = self.db_settings.get('PORT', '5432')
     
 #     def create_backup(self, app_names=None, compress=True, exclude=None, include_media=True):
-#   
-#         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-#         backup_name = f"backup_{timestamp}"
+        # """
+        # إنشاء نسخة احتياطية باستخدام pg_dump (طريقة PostgreSQL الاحترافية)
+        # """
+        # # ✅ تنسيق الوقت لاسم الملف (بدون نقطتين)
+        # timestamp_file = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # backup_name = f"backup_{timestamp_file}"
         
-#         temp_backup_dir = self.backup_dir / f"temp_{timestamp}"
-#         temp_backup_dir.mkdir(parents=True, exist_ok=True)
+        # # ✅ تنسيق الوقت لـ API Response (ISO 8601 مع Z)
+        # timestamp_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         
-#         result = {
-#             'success': True,
-#             'created_at': timestamp
-#         }
+        # temp_backup_dir = self.backup_dir / f"temp_{timestamp_file}"
+        # temp_backup_dir.mkdir(parents=True, exist_ok=True)
         
-#         try:
-#             db_backup_file = temp_backup_dir / f"{backup_name}.sql"
+        # result = {
+        #     'success': True,
+        #     'created_at': timestamp_iso  # ✅ التنسيق الجديد
+        # }
+        
+        # try:
+        #     # ✅ 1. نسخ قاعدة البيانات باستخدام pg_dump
+        #     db_backup_file = temp_backup_dir / f"{backup_name}.sql"
             
-#             # أمر pg_dump
-#             pg_dump_cmd = [
-#                 'pg_dump',
-#                 '-h', self.db_host,
-#                 '-p', self.db_port,
-#                 '-U', self.db_user,
-#                 '-d', self.db_name,
-#                 '-f', str(db_backup_file),
-#                 '--format=plain',
-#                 '--no-owner',
-#                 '--no-privileges',
-#                 '--verbose'
-#             ]
+        #     # أمر pg_dump
+        #     pg_dump_cmd = [
+        #         'pg_dump',
+        #         '-h', self.db_host,
+        #         '-p', self.db_port,
+        #         '-U', self.db_user,
+        #         '-d', self.db_name,
+        #         '-f', str(db_backup_file),
+        #         '--format=plain',
+        #         '--no-owner',
+        #         '--no-privileges',
+        #         '--verbose'
+        #     ]
             
-#             env = os.environ.copy()
-#             env['PGPASSWORD'] = self.db_password
+        #     env = os.environ.copy()
+        #     env['PGPASSWORD'] = self.db_password
             
-#             self.stdout_message(f"📤 Creating database backup with pg_dump...")
-#             result_cmd = subprocess.run(
-#                 pg_dump_cmd,
-#                 env=env,
-#                 capture_output=True,
-#                 text=True
-#             )
+        #     self.stdout_message(f"📤 Creating database backup with pg_dump...")
+        #     result_cmd = subprocess.run(
+        #         pg_dump_cmd,
+        #         env=env,
+        #         capture_output=True,
+        #         text=True
+        #     )
             
-#             if result_cmd.returncode != 0:
-#                 raise Exception(f"pg_dump failed: {result_cmd.stderr}")
+        #     if result_cmd.returncode != 0:
+        #         raise Exception(f"pg_dump failed: {result_cmd.stderr}")
             
-#             if db_backup_file.stat().st_size == 0:
-#                 raise Exception("Database backup file is empty")
+        #     if db_backup_file.stat().st_size == 0:
+        #         raise Exception("Database backup file is empty")
             
-#             self.stdout_message(f"Database backup created: {db_backup_file} ({self.get_file_size(db_backup_file)})")
-#             result['database_backup'] = str(db_backup_file)
+        #     self.stdout_message(f"✅ Database backup created: {db_backup_file} ({self.get_file_size(db_backup_file)})")
+        #     result['database_backup'] = str(db_backup_file)
             
-#             if compress:
-#                 gz_file = temp_backup_dir / f"{backup_name}.sql.gz"
-#                 with open(db_backup_file, 'rb') as f_in:
-#                     with gzip.open(gz_file, 'wb') as f_out:
-#                         shutil.copyfileobj(f_in, f_out)
-#                 db_backup_file.unlink()  
-#                 db_backup_file = gz_file
-#                 self.stdout_message(f"Database backup compressed: {gz_file}")
+        #     # ✅ 2. ضغط ملف SQL إذا طلب ذلك
+        #     if compress:
+        #         gz_file = temp_backup_dir / f"{backup_name}.sql.gz"
+        #         with open(db_backup_file, 'rb') as f_in:
+        #             with gzip.open(gz_file, 'wb') as f_out:
+        #                 shutil.copyfileobj(f_in, f_out)
+        #         db_backup_file.unlink()  # حذف الملف غير المضغوط
+        #         db_backup_file = gz_file
+        #         self.stdout_message(f"✅ Database backup compressed: {gz_file}")
             
-#             if include_media and self.media_dir.exists():
-#                 media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
+        #     # ✅ 3. نسخ ملفات media
+        #     if include_media and self.media_dir.exists():
+        #         media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
                 
-#                 with tarfile.open(media_backup_file, 'w:gz') as tar:
-#                     tar.add(self.media_dir, arcname='media')
+        #         with tarfile.open(media_backup_file, 'w:gz') as tar:
+        #             tar.add(self.media_dir, arcname='media')
                 
-#                 self.stdout_message(f"Media backup created: {media_backup_file}")
-#                 result['media_backup'] = str(media_backup_file)
+        #         self.stdout_message(f"✅ Media backup created: {media_backup_file}")
+        #         result['media_backup'] = str(media_backup_file)
             
-#             final_backup_file = self.backup_dir / f"{backup_name}.tar.gz"
-#             with tarfile.open(final_backup_file, 'w:gz') as tar:
-#                 for file in temp_backup_dir.iterdir():
-#                     tar.add(file, arcname=file.name)
+        #     # ✅ 4. تجميع كل شيء في ملف واحد
+        #     final_backup_file = self.backup_dir / f"{backup_name}.tar.gz"
+        #     with tarfile.open(final_backup_file, 'w:gz') as tar:
+        #         for file in temp_backup_dir.iterdir():
+        #             tar.add(file, arcname=file.name)
             
-#             self.stdout_message(f"Final backup created: {final_backup_file}")
+        #     self.stdout_message(f"✅ Final backup created: {final_backup_file}")
             
-#             shutil.rmtree(temp_backup_dir)
+        #     # تنظيف المجلد المؤقت
+        #     shutil.rmtree(temp_backup_dir)
             
-#             result['filename'] = final_backup_file.name
-#             result['size'] = self.get_file_size(final_backup_file)
+        #     result['filename'] = final_backup_file.name
+        #     result['size'] = self.get_file_size(final_backup_file)
             
-#             self.cleanup_old_backups()
+        #     # تنظيف الملفات القديمة
+        #     self.cleanup_old_backups()
             
-#             return result
+        #     return result
             
-#         except Exception as e:
-#             self.stdout_message(f"Backup creation error: {e}")
-#             if temp_backup_dir.exists():
-#                 shutil.rmtree(temp_backup_dir)
+        # except Exception as e:
+        #     self.stdout_message(f"❌ Backup creation error: {e}")
+        #     if temp_backup_dir.exists():
+        #         shutil.rmtree(temp_backup_dir)
             
-#             return {
-#                 'success': False,
-#                 'error': str(e)
-#             }
+        #     return {
+        #         'success': False,
+        #         'error': str(e)
+        #     }
     
 #     def restore_backup(self, backup_filename, mode='restore', include_media=True):
 #      
@@ -709,19 +729,26 @@ class BackupService:
 #         self.stdout_message("Database cleaned completely")
     
 #     def list_backups(self):
-#         backups = []
+    # """قائمة بجميع النسخ الاحتياطية"""
+    #     backups = []
         
-#         for file in sorted(self.backup_dir.glob('backup_*.tar.gz'), reverse=True):
-#             stat = file.stat()
-#             backups.append({
-#                 'filename': file.name,
-#                 'size': self.get_file_size(file),
-#                 'created_at': datetime.fromtimestamp(stat.st_mtime),
-#                 'file_path': str(file),
-#                 'type': self.get_backup_type(file)
-#             })
+    #     for file in sorted(self.backup_dir.glob('backup_*.tar.gz'), reverse=True):
+    #         stat = file.stat()
+            
+    #         # ✅ تحويل الوقت إلى صيغة ISO مع Z
+    #         created_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat().replace('+00:00', 'Z')
+            
+    #         backup_type = self.get_backup_type(file)
+            
+    #         backups.append({
+    #             'filename': file.name,
+    #             'size': self.get_file_size(file),
+    #             'created_at': created_at,  # ✅ نفس التنسيق
+    #             'file_path': str(file),
+    #             'type': backup_type
+    #         })
         
-#         return backups
+    #     return backups
     
 #     def get_backup_type(self, backup_file):
 #         try:

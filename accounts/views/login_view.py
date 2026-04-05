@@ -18,7 +18,7 @@ class LoginAPIView(APIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         
-        if not serializer.is_valid():
+        if not serializer.is_valid()  :
             errors = serializer.errors
             
             if 'username' and 'password' in errors:
@@ -40,7 +40,7 @@ class LoginAPIView(APIView):
         password = serializer.validated_data["password"]
         user = authenticate(request, username=username, password=password)
 
-        if not user:
+        if not user or user.deleted_at is not None:
             return Response({
                 "message": "Invalid username or password"
             }, status=status.HTTP_401_UNAUTHORIZED)

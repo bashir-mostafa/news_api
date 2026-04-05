@@ -1,7 +1,7 @@
 # content/views/comments_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -97,20 +97,12 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class CommentRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    عرض وتحديث وحذف تعليق محدد
-    GET: /api/comments/{id}/
-    PUT: /api/comments/{id}/
-    PATCH: /api/comments/{id}/
-    DELETE: /api/comments/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
         queryset = Comments.objects.filter(deleted_at__isnull=True)
         
-        # للمستخدمين غير المسجلين، عرض التعليقات الموافق عليها فقط
         if not self.request.user.is_staff:
             queryset = queryset.filter(is_approved=True)
         
@@ -183,11 +175,8 @@ class CommentRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class CommentHardDeleteView(generics.DestroyAPIView):
-    """
-    حذف نهائي لتعليق (للمشرفين فقط)
-    DELETE: /api/comments/hard-delete/{id}/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = Comments.objects.all()
     
@@ -212,7 +201,7 @@ class CommentBulkHardDeleteView(APIView):
     حذف نهائي لمجموعة تعليقات (للمشرفين فقط)
     DELETE: /api/comments/bulk-hard-delete/
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         comment_ids = request.data.get('ids', [])
@@ -250,7 +239,7 @@ class CommentRestoreView(APIView):
     استعادة تعليق محذوف
     POST: /api/comments/restore/{id}/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request, id):
         try:
@@ -280,7 +269,7 @@ class CommentBulkDeleteView(APIView):
     حذف ناعم لمجموعة تعليقات
     DELETE: /api/comments/bulk-delete/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request):
         comment_ids = request.data.get('ids', [])
@@ -316,7 +305,7 @@ class CommentBulkRestoreView(APIView):
     استعادة مجموعة تعليقات محذوفة
     POST: /api/comments/bulk-restore/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request):
         comment_ids = request.data.get('ids', [])
@@ -352,7 +341,7 @@ class CommentDeletedListView(generics.ListAPIView):
     عرض قائمة التعليقات المحذوفة
     GET: /api/comments/deleted/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     serializer_class = CommentsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'name', 'email']
@@ -371,7 +360,7 @@ class CommentApproveView(APIView):
     الموافقة على تعليق
     POST: /api/comments/approve/{id}/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def post(self, request, id):
         try:
@@ -400,7 +389,7 @@ class CommentUnapproveView(APIView):
     إلغاء الموافقة على تعليق
     POST: /api/comments/unapprove/{id}/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     
     def post(self, request, id):
         try:
@@ -427,7 +416,7 @@ class CommentUnapproveView(APIView):
 # ============ GET COMMENTS BY POST ============
 class CommentsByPostView(generics.ListAPIView):
    
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
     serializer_class = CommentsListSerializer
     pagination_class = CompactPagination
     filter_backends = [filters.OrderingFilter, DjangoFilterBackend]  

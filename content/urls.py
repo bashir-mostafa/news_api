@@ -58,16 +58,16 @@ urlpatterns = [
     
     # ============ HARD DELETE ============
     # DELETE (permanent delete - admin only)
-    path('tags/<int:id>/hard-delete/', tags_views.TagHardDeleteView.as_view(), name='tag-hard-delete'),
+    path('tags/<int:id>/hard-deleted/', tags_views.TagHardDeleteView.as_view(), name='tag-hard-delete'),
      # DELETE (permanent delete multiple tags - admin only)
-    path('tags/bulk-hard-delete/', tags_views.TagBulkHardDeleteView.as_view(), name='tag-bulk-hard-delete'),
+    path('tags/bulk-hard-deleted/', tags_views.TagBulkHardDeleteView.as_view(), name='tag-bulk-hard-delete'),
     # ============ RESTORE SOFT DELETED ============
     # POST (restore soft deleted tag)
     path('tags/<int:id>/restore/', tags_views.TagRestoreView.as_view(), name='tag-restore'),
     
     # ============ BULK OPERATIONS ============
     # DELETE (bulk soft delete)
-    path('tags/bulk-delete/', tags_views.TagBulkDeleteView.as_view(), name='tag-bulk-delete'),
+    path('tags/bulk-deleted/', tags_views.TagBulkDeleteView.as_view(), name='tag-bulk-delete'),
     path('tags/bulk-restore/', tags_views.TagBulkRestoreView.as_view(), name='tag-bulk-restore'),
     # ========================================================================================================
 
@@ -82,7 +82,7 @@ urlpatterns = [
     
     # ============ HARD DELETE ============
     # DELETE (bulk soft delete)
-    path('authors/<int:id>/hard-delete/', authors_views.AuthorHardDeleteView.as_view(), name='author-hard-delete'),
+    path('authors/<int:id>/hard-deleted/', authors_views.AuthorHardDeleteView.as_view(), name='author-hard-delete'),
     # DELETE (permanent delete multiple authors - admin only)
     path('authors/bulk-hard-delete/', authors_views.AuthorBulkHardDeleteView.as_view(), name='author-bulk-hard-delete'),
     # ============ RESTORE SOFT DELETED ============
@@ -90,7 +90,7 @@ urlpatterns = [
     path('authors/<int:id>/restore/', authors_views.AuthorRestoreView.as_view(), name='author-restore'),
     
     # ============ BULK OPERATIONS ============
-    path('authors/bulk-delete/', authors_views.AuthorBulkDeleteView.as_view(), name='author-bulk-delete'),
+    path('authors/bulk-deleted/', authors_views.AuthorBulkDeleteView.as_view(), name='author-bulk-delete'),
     path('authors/bulk-restore/', authors_views.AuthorBulkRestoreView.as_view(), name='author-bulk-restore'),
    # ============ BASIC CRUD ============
     # GET (list all categories), POST (create new category)
@@ -100,7 +100,7 @@ urlpatterns = [
     
     # ============ HARD DELETE ============
     # DELETE (permanent delete - admin only)
-    path('categories/<int:id>/hard-delete/', categories_views.CategoryHardDeleteView.as_view(), name='category-hard-delete'),
+    path('categories/<int:id>/hard-deleted/', categories_views.CategoryHardDeleteView.as_view(), name='category-hard-delete'),
     path('categories/bulk-hard-delete/', categories_views.CategoryBulkHardDeleteView.as_view(), name='category-bulk-hard-delete'),
 
     # ============ RESTORE SOFT DELETED ============
@@ -109,7 +109,7 @@ urlpatterns = [
     
     # ============ BULK OPERATIONS ============
     # DELETE (bulk soft delete)
-    path('categories/bulk-delete/', categories_views.CategoryBulkDeleteView.as_view(), name='category-bulk-delete'),
+    path('categories/bulk-deleted/', categories_views.CategoryBulkDeleteView.as_view(), name='category-bulk-delete'),
     # POST (bulk restore)
     path('categories/bulk-restore/', categories_views.CategoryBulkRestoreView.as_view(), name='category-bulk-restore'),
 

@@ -17,7 +17,7 @@ from datetime import datetime
 class UserListCreateAPIView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.filter(deleted_at__isnull=True)
     
-    permission_classes = (IsAuthenticated, IsAdminUser)
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = UserFilter.UserFilter
     pagination_class = CompactPagination
@@ -79,6 +79,7 @@ class UserRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
+        instance.is_active = False
         instance.save()
     
     def retrieve(self, request, *args, **kwargs):

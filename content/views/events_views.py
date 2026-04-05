@@ -1,7 +1,7 @@
 # content/views/events_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -23,7 +23,7 @@ class EventListCreateView(generics.ListCreateAPIView):
     GET: /api/events/
     POST: /api/events/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'post', 'event_type', 'location']
     pagination_class = CompactPagination
@@ -34,24 +34,20 @@ class EventListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Events.objects.filter(deleted_at__isnull=True)
         
-        # تصفية حسب المقال
         post_id = self.request.query_params.get('post')
         if post_id:
             queryset = queryset.filter(post_id=post_id)
         
-        # تصفية حسب نوع الحدث
         event_type = self.request.query_params.get('event_type')
         if event_type:
             queryset = queryset.filter(event_type=event_type)
         
-        # تصفية حسب الأحداث القادمة أو الماضية
         status = self.request.query_params.get('status')
         if status == 'upcoming':
             queryset = queryset.filter(event_date__gt=timezone.now())
         elif status == 'past':
             queryset = queryset.filter(event_date__lt=timezone.now())
         
-        # للمستخدمين غير المسجلين، عرض الأحداث القادمة فقط (اختياري)
         if not self.request.user.is_staff:
             queryset = queryset.filter(event_date__gt=timezone.now())
         
@@ -112,20 +108,13 @@ class EventListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class EventRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    عرض وتحديث وحذف حدث محدد
-    GET: /api/events/{id}/
-    PUT: /api/events/{id}/
-    PATCH: /api/events/{id}/
-    DELETE: /api/events/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
         queryset = Events.objects.filter(deleted_at__isnull=True)
         
-        # للمستخدمين غير المسجلين، عرض الأحداث القادمة فقط
         if not self.request.user.is_staff:
             queryset = queryset.filter(event_date__gt=timezone.now())
         
@@ -198,11 +187,8 @@ class EventRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class EventHardDeleteView(generics.DestroyAPIView):
-    """
-    حذف نهائي لحدث (للمشرفين فقط)
-    DELETE: /api/events/hard-delete/{id}/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = Events.objects.all()
     
@@ -223,11 +209,8 @@ class EventHardDeleteView(generics.DestroyAPIView):
 
 
 class EventBulkHardDeleteView(APIView):
-    """
-    حذف نهائي لمجموعة أحداث (للمشرفين فقط)
-    DELETE: /api/events/bulk-hard-delete/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         event_ids = request.data.get('ids', [])
@@ -261,11 +244,8 @@ class EventBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class EventRestoreView(APIView):
-    """
-    استعادة حدث محذوف
-    POST: /api/events/restore/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -291,11 +271,8 @@ class EventRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class EventBulkDeleteView(APIView):
-    """
-    حذف ناعم لمجموعة أحداث
-    DELETE: /api/events/bulk-delete/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         event_ids = request.data.get('ids', [])
@@ -327,11 +304,8 @@ class EventBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class EventBulkRestoreView(APIView):
-    """
-    استعادة مجموعة أحداث محذوفة
-    POST: /api/events/bulk-restore/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         event_ids = request.data.get('ids', [])
@@ -363,11 +337,8 @@ class EventBulkRestoreView(APIView):
 
 # ============ GET DELETED EVENTS ============
 class EventDeletedListView(generics.ListAPIView):
-    """
-    عرض قائمة الأحداث المحذوفة
-    GET: /api/events/deleted/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
     serializer_class = EventsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'event_type', 'location']
@@ -382,17 +353,13 @@ class EventDeletedListView(generics.ListAPIView):
 
 # ============ INCREMENT ATTENDEES COUNT ============
 class EventIncrementAttendeesView(APIView):
-    """
-    زيادة عدد الحضور في الحدث
-    POST: /api/events/increment-attendees/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     
     def post(self, request, id):
         try:
             event = Events.objects.get(id=id, deleted_at__isnull=True)
             
-            # التحقق من أن الحدث لم يمض
             if event.event_date < timezone.now():
                 return Response({
                     "message": "Cannot increment attendees for past events"
@@ -419,11 +386,8 @@ class EventIncrementAttendeesView(APIView):
 
 # ============ DECREMENT ATTENDEES COUNT ============
 class EventDecrementAttendeesView(APIView):
-    """
-    إنقاص عدد الحضور في الحدث
-    POST: /api/events/decrement-attendees/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     
     def post(self, request, id):
         try:
@@ -456,11 +420,8 @@ class EventDecrementAttendeesView(APIView):
 
 # ============ GET EVENTS BY POST ============
 class EventsByPostView(generics.ListAPIView):
-    """
-    عرض أحداث مقال محدد
-    GET: /api/events/by-post/{post_id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     serializer_class = EventsListSerializer
     pagination_class = CompactPagination
     
@@ -471,7 +432,6 @@ class EventsByPostView(generics.ListAPIView):
             deleted_at__isnull=True
         )
         
-        # للمستخدمين غير المسجلين، عرض الأحداث القادمة فقط
         if not self.request.user.is_staff:
             queryset = queryset.filter(event_date__gt=timezone.now())
         
