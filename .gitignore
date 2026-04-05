@@ -18,7 +18,7 @@ db.sqlite3
 media/
 staticfiles/
 .DS_Store
-
+backups/
 # Pytest / coverage
 htmlcov/
 .coverage
