@@ -133,7 +133,7 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 BACKUP_CONFIG = {
     'BACKUP_DIR': BASE_DIR / 'backups',
     'MAX_BACKUP_FILES': 1, 
-    'ALLOWED_APPS': ['accounts', 'content'],  
+    'ALLOWED_APPS': ['content'],  
     'AUTO_BACKUP_ENABLED': True,
     'AUTO_BACKUP_HOUR': 9, 
     'AUTO_BACKUP_MINUTE': 57, 
