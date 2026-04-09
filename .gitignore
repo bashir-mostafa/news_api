@@ -9,7 +9,7 @@ env/
 .venv/
 .env/
 /migrate_wp_to_sqlite.py
-content/management
+content/management/commands/migrate_wp_to_sqlite.py
 # Django stuff:
 *.log
 *.pot
