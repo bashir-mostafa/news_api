@@ -29,9 +29,6 @@ class BackupService:
         self.db_host = self.db_settings.get('HOST', 'localhost')
         self.db_port = self.db_settings.get('PORT', '5432')
     
-    # backup_api/services.py
-
-
     def create_backup(self, app_names=None, compress=True, exclude=None, include_media=True):
         timestamp_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         
@@ -60,6 +57,7 @@ class BackupService:
             if app_names:
                 args.extend(app_names)
             
+            # ✅ استبعاد جميع بيانات accounts نهائياً
             exclude_args = [
                 '--exclude', 'auth.permission',
                 '--exclude', 'contenttypes',
@@ -68,6 +66,8 @@ class BackupService:
                 '--exclude', 'accounts.token', 
                 '--exclude', 'token_blacklist',  
                 '--exclude', 'authtoken', 
+                '--exclude', 'sessions',
+                '--exclude', 'admin.logentry',
             ]
             
             if exclude:
@@ -87,6 +87,7 @@ class BackupService:
             
             result['database_backup'] = str(db_backup_file)
             
+            # ✅ استبعاد مجلد accounts من media
             if include_media and self.media_dir.exists():
                 media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
                 
@@ -145,28 +146,62 @@ class BackupService:
             db_backup_file = db_files[0]
             
             if mode == 'replace':
-                self.clean_database_completely()
-                self.stdout_message("Database cleaned for replace mode")
+                # ✅ تنظيف مع حماية accounts
+                self.clean_database_completely(preserve_accounts=True)
+                self.stdout_message("Database cleaned for replace mode (accounts preserved)")
             
+            # ✅ تصفية بيانات accounts من ملف JSON قبل الاستعادة
             if str(db_backup_file).endswith('.gz'):
                 temp_file = temp_restore_dir / "temp_restore.json"
                 with gzip.open(db_backup_file, 'rt', encoding='utf-8') as f_in:
-                    with open(temp_file, 'w', encoding='utf-8') as f_out:
-                        f_out.write(f_in.read())
+                    data = json.load(f_in)
+                
+                # تصفية البيانات
+                if isinstance(data, list):
+                    filtered_data = [item for item in data if not item.get('model', '').startswith('accounts.')]
+                else:
+                    filtered_data = data
+                
+                with open(temp_file, 'w', encoding='utf-8') as f_out:
+                    json.dump(filtered_data, f_out, indent=2)
                 call_command('loaddata', str(temp_file))
                 temp_file.unlink()
             else:
-                call_command('loaddata', str(db_backup_file))
+                with open(db_backup_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                if isinstance(data, list):
+                    filtered_data = [item for item in data if not item.get('model', '').startswith('accounts.')]
+                else:
+                    filtered_data = data
+                
+                temp_file = temp_restore_dir / "temp_restore_filtered.json"
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    json.dump(filtered_data, f, indent=2)
+                call_command('loaddata', str(temp_file))
+                temp_file.unlink()
             
+            # ✅ استعادة media مع حماية مجلد accounts
             if include_media:
                 media_files = list(temp_restore_dir.glob('*_media.tar.gz'))
                 if media_files:
                     media_backup = media_files[0]
                     
                     if mode == 'replace' and self.media_dir.exists():
+                        # حماية مجلد accounts
+                        accounts_media_path = self.media_dir / 'accounts'
+                        accounts_backup = None
+                        if accounts_media_path.exists():
+                            accounts_backup = Path(tempfile.mkdtemp()) / 'accounts'
+                            shutil.copytree(accounts_media_path, accounts_backup)
+                            self.stdout_message("Accounts media folder preserved")
+                        
                         shutil.rmtree(self.media_dir)
                         self.media_dir.mkdir(parents=True, exist_ok=True)
-                        self.stdout_message("Media folder cleaned for replace mode")
+                        
+                        if accounts_backup and accounts_backup.exists():
+                            shutil.copytree(accounts_backup, accounts_media_path)
+                            self.stdout_message("Accounts media folder restored")
                     
                     with tarfile.open(media_backup, 'r:gz') as tar:
                         tar.extractall(settings.BASE_DIR)
@@ -177,7 +212,7 @@ class BackupService:
             
             return {
                 'success': True,
-                'message': f"Successfully restored from {backup_filename} using mode='{mode}'",
+                'message': f"Successfully restored from {backup_filename} using mode='{mode}' (accounts preserved)",
                 'mode': mode
             }
             
@@ -190,13 +225,14 @@ class BackupService:
                 'error': str(e)
             }
     
-    # backup_api/services.py
-
     def restore_from_stream(self, backup_stream, mode='restore', include_media=True):
-    
         temp_restore_dir = None
         try:
             temp_restore_dir = Path(tempfile.mkdtemp())
+            
+            # ✅ تأكد من أن backup_stream هو كائن ملف
+            if hasattr(backup_stream, 'seek'):
+                backup_stream.seek(0)
             
             with tarfile.open(fileobj=backup_stream, mode='r:gz') as tar:
                 tar.extractall(temp_restore_dir)
@@ -211,27 +247,59 @@ class BackupService:
             db_backup_file = db_files[0]
             
             if mode == 'replace':
-                self.clean_database_completely()
-                self.stdout_message("Database cleaned for replace mode")
+                # ✅ تنظيف مع حماية accounts
+                self.clean_database_completely(preserve_accounts=True)
+                self.stdout_message("Database cleaned for replace mode (accounts preserved)")
                 
                 if include_media and self.media_dir.exists():
+                    # حماية مجلد accounts
+                    accounts_media_path = self.media_dir / 'accounts'
+                    accounts_backup = None
+                    if accounts_media_path.exists():
+                        accounts_backup = Path(tempfile.mkdtemp()) / 'accounts'
+                        shutil.copytree(accounts_media_path, accounts_backup)
+                        self.stdout_message("Accounts media folder preserved")
+                    
                     shutil.rmtree(self.media_dir)
                     self.media_dir.mkdir(parents=True, exist_ok=True)
-                    self.stdout_message("Media folder cleaned for replace mode")
+                    
+                    if accounts_backup and accounts_backup.exists():
+                        shutil.copytree(accounts_backup, accounts_media_path)
+                        self.stdout_message("Accounts media folder restored")
             
             self.stdout_message("Restoring database from stream")
             
+            # ✅ تصفية بيانات accounts من ملف JSON
             if str(db_backup_file).endswith('.gz'):
                 temp_file = temp_restore_dir / "temp_restore.json"
                 with gzip.open(db_backup_file, 'rt', encoding='utf-8') as f_in:
-                    with open(temp_file, 'w', encoding='utf-8') as f_out:
-                        f_out.write(f_in.read())
+                    data = json.load(f_in)
+                
+                if isinstance(data, list):
+                    filtered_data = [item for item in data if not item.get('model', '').startswith('accounts.')]
+                else:
+                    filtered_data = data
+                
+                with open(temp_file, 'w', encoding='utf-8') as f_out:
+                    json.dump(filtered_data, f_out, indent=2)
                 call_command('loaddata', str(temp_file))
                 temp_file.unlink()
             else:
-                call_command('loaddata', str(db_backup_file))
+                with open(db_backup_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                if isinstance(data, list):
+                    filtered_data = [item for item in data if not item.get('model', '').startswith('accounts.')]
+                else:
+                    filtered_data = data
+                
+                temp_file = temp_restore_dir / "temp_restore_filtered.json"
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    json.dump(filtered_data, f, indent=2)
+                call_command('loaddata', str(temp_file))
+                temp_file.unlink()
             
-            self.stdout_message("Database restored successfully")
+            self.stdout_message("Database restored successfully (accounts excluded)")
             
             if include_media:
                 media_files = list(temp_restore_dir.glob('*_media.tar.gz'))
@@ -246,7 +314,7 @@ class BackupService:
             
             return {
                 'success': True,
-                'message': f"Successfully restored from stream using mode='{mode}'",
+                'message': f"Successfully restored from stream using mode='{mode}' (accounts preserved)",
                 'mode': mode
             }
             
@@ -262,7 +330,8 @@ class BackupService:
             if temp_restore_dir and temp_restore_dir.exists():
                 shutil.rmtree(temp_restore_dir, ignore_errors=True)
     
-    def clean_database_completely(self):
+    def clean_database_completely(self, preserve_accounts=True):
+   
         from django.apps import apps
         
         all_models = apps.get_models()
@@ -271,7 +340,6 @@ class BackupService:
             db_engine = settings.DATABASES['default']['ENGINE']
             
             if 'postgresql' in db_engine:
-                # PostgreSQL
                 cursor.execute("SET CONSTRAINTS ALL DEFERRED;")
                 cursor.execute("""
                     SELECT tablename FROM pg_tables 
@@ -280,11 +348,15 @@ class BackupService:
                 """)
                 tables = cursor.fetchall()
                 for table in tables:
+                    table_name = table[0]
+                    if preserve_accounts and table_name.startswith('accounts_'):
+                        self.stdout_message(f"  Skipped (preserved): {table_name}")
+                        continue
                     try:
-                        cursor.execute(f'TRUNCATE TABLE "{table[0]}" CASCADE;')
-                        self.stdout_message(f"  Truncated: {table[0]}")
+                        cursor.execute(f'TRUNCATE TABLE "{table_name}" CASCADE;')
+                        self.stdout_message(f"  Truncated: {table_name}")
                     except Exception as e:
-                        self.stdout_message(f"  Error truncating {table[0]}: {e}")
+                        self.stdout_message(f"  Error truncating {table_name}: {e}")
                         
             elif 'sqlite' in db_engine:
                 cursor.execute("PRAGMA foreign_keys = OFF;")
@@ -292,26 +364,35 @@ class BackupService:
                     if not model._meta.managed:
                         continue
                     table_name = model._meta.db_table
-                    if table_name not in ['django_migrations', 'django_content_type', 'auth_permission']:
-                        try:
-                            cursor.execute(f"DELETE FROM {table_name};")
-                            self.stdout_message(f"  Deleted from: {table_name}")
-                        except Exception as e:
-                            self.stdout_message(f"  Error deleting from {table_name}: {e}")
+                    if table_name in ['django_migrations', 'django_content_type', 'auth_permission']:
+                        continue
+                    if preserve_accounts and table_name.startswith('accounts_'):
+                        self.stdout_message(f"  Skipped (preserved): {table_name}")
+                        continue
+                    try:
+                        cursor.execute(f"DELETE FROM {table_name};")
+                        self.stdout_message(f"  Deleted from: {table_name}")
+                    except Exception as e:
+                        self.stdout_message(f"  Error deleting from {table_name}: {e}")
                 cursor.execute("PRAGMA foreign_keys = ON;")
                 
             else:
                 for model in all_models:
                     if not model._meta.managed:
                         continue
-                    if model._meta.db_table not in ['django_migrations', 'django_content_type', 'auth_permission']:
-                        try:
-                            model.objects.all().delete()
-                            self.stdout_message(f"  Deleted from: {model._meta.db_table}")
-                        except Exception as e:
-                            self.stdout_message(f"  Error deleting from {model._meta.db_table}: {e}")
+                    table_name = model._meta.db_table
+                    if table_name in ['django_migrations', 'django_content_type', 'auth_permission']:
+                        continue
+                    if preserve_accounts and table_name.startswith('accounts_'):
+                        self.stdout_message(f"  Skipped (preserved): {table_name}")
+                        continue
+                    try:
+                        model.objects.all().delete()
+                        self.stdout_message(f"  Deleted from: {model._meta.db_table}")
+                    except Exception as e:
+                        self.stdout_message(f"  Error deleting from {model._meta.db_table}: {e}")
         
-        self.stdout_message("Database cleaned completely")
+        self.stdout_message("Database cleaned completely (accounts preserved)")
     
     def delete_backup(self, backup_filename):
         backup_file = self.backup_dir / backup_filename
@@ -336,7 +417,7 @@ class BackupService:
             }
     
     def clean_database(self):
-        self.clean_database_completely()
+        self.clean_database_completely(preserve_accounts=True)
     
     def list_backups(self):
         backups = []
@@ -396,7 +477,6 @@ class BackupService:
     
     def stdout_message(self, message):
         print(f"[BackupService] {message}")
-
 # # backup_api/services.py
 # import os
 # import gzip
