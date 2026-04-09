@@ -1,6 +1,4 @@
 # content/serializers/posts_serializers.py
-from datetime import timezone
-
 from rest_framework import serializers
 from content.models import Posts, ContentType, Language, Tags, Authors, Categories
 import re
@@ -170,7 +168,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
-            'author': {'required': False, 'error_messages': {'required': 'Author is required'}},
+            'author': {'required': False},
             'tags': {'required': False},
             'featured_image': {'required': False, 'allow_null': True},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -211,7 +209,6 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
-     
     def validate_language(self, value):
         if not value:
             raise serializers.ValidationError("Language is required")
@@ -233,7 +230,13 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-   
+    def validate_published_at(self, value):
+        """التحقق من أن published_at لا يمكن أن يكون في الماضي"""
+        if value:
+            from django.utils import timezone
+            if value < timezone.now():
+                raise serializers.ValidationError("Published date cannot be in the past")
+        return value
     
     def validate(self, data):
         if self.instance is None:
@@ -267,9 +270,14 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         tags = validated_data.pop('tags', [])
+        from django.utils import timezone
         
-        if validated_data.get('is_published') and not validated_data.get('published_at'):
-            from django.utils import timezone
+        published_at = validated_data.get('published_at')
+        
+        if published_at:
+            validated_data['is_published'] = False 
+        else:
+            validated_data['is_published'] = True
             validated_data['published_at'] = timezone.now()
         
         post = Posts.objects.create(**validated_data)
@@ -278,12 +286,20 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             post.tags.set(tags)
         
         return post
+    
     def update(self, instance, validated_data):
         tags = validated_data.pop('tags', None)
+        published_at = validated_data.get('published_at')
+        from django.utils import timezone
         
-        if validated_data.get('is_published') and not instance.published_at:
-            from django.utils import timezone
-            validated_data['published_at'] = timezone.now()
+        if published_at is not None:
+            if published_at and published_at > timezone.now():
+                validated_data['is_published'] = False
+            elif published_at and published_at <= timezone.now():
+                validated_data['is_published'] = True
+            else:
+                validated_data['is_published'] = True
+                validated_data['published_at'] = timezone.now()
         
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -304,7 +320,8 @@ class PostsDetailSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     
     original_post_title = serializers.CharField(source='original_post.title', read_only=True)
-    original_post = serializers.SerializerMethodField() 
+    original_post = serializers.SerializerMethodField()
+    translations = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
     
     class Meta:
@@ -334,6 +351,7 @@ class PostsDetailSerializer(serializers.ModelSerializer):
                 'updated_at': obj.author.updated_at
             }
         return None
+    
     def get_category(self, obj):
         if obj.category and not obj.category.deleted_at:
             request = self.context.get('request')
@@ -374,6 +392,15 @@ class PostsDetailSerializer(serializers.ModelSerializer):
             return PostsListSerializer(obj.original_post, context=self.context).data
         return None
     
+    def get_translations(self, obj):
+        """إرجاع ترجمات المقال"""
+        if obj.original_post:
+            translations = Posts.objects.filter(original_post=obj.original_post, deleted_at__isnull=True)
+        else:
+            translations = Posts.objects.filter(original_post=obj, deleted_at__isnull=True)
+        
+        return PostsListSerializer(translations, many=True, context=self.context).data
+    
     def _get_author_image_url(self, author, request):
         if author.profile_image:
             if request:
@@ -402,10 +429,11 @@ class PostsListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
     content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
-    original_post = serializers.SerializerMethodField()
+    
     author = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
+    original_post = serializers.SerializerMethodField()
     
     class Meta:
         model = Posts
@@ -424,24 +452,10 @@ class PostsListSerializer(serializers.ModelSerializer):
             'view_count',
             'published_at',
             'is_published',
-            'original_post', 
+            'original_post',
             'created_at'
         ]
-    def get_original_post(self, obj):
-        if obj.original_post:
-            request = self.context.get('request')
-            original = obj.original_post
-            return {
-                'id': original.id,
-                'title': original.title,
-                'excerpt': original.excerpt,
-                'featured_image': self.get_featured_image(original),
-                'language': original.language,
-                'language_display': original.get_language_display(),
-                'published_at': original.published_at,
-                'is_published': original.is_published,
-            }
-        return None
+    
     def get_featured_image(self, obj):
         if obj.featured_image:
             request = self.context.get('request')
@@ -496,6 +510,22 @@ class PostsListSerializer(serializers.ModelSerializer):
             }
             for tag in tags
         ]
+    
+    def get_original_post(self, obj):
+        if obj.original_post:
+            request = self.context.get('request')
+            original = obj.original_post
+            return {
+                'id': original.id,
+                'title': original.title,
+                'excerpt': original.excerpt,
+                'featured_image': self.get_featured_image(original),
+                'language': original.language,
+                'language_display': original.get_language_display(),
+                'published_at': original.published_at,
+                'is_published': original.is_published,
+            }
+        return None
     
     def _get_author_image_url(self, author, request):
         if author.profile_image:
@@ -567,7 +597,6 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
                 'full_name': obj.author.full_name,
                 'slug': obj.author.slug,
                 'profile_image': self._get_author_image_url(obj.author, request),
-
             }
         return None
     

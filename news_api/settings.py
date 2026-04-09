@@ -138,7 +138,6 @@ BACKUP_CONFIG = {
     'AUTO_BACKUP_HOUR': 9, 
     'AUTO_BACKUP_MINUTE': 57, 
     'AUTO_BACKUP_KEEP_DAYS': 1, 
-
 }
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  
