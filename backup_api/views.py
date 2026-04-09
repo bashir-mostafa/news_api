@@ -172,8 +172,9 @@ class ReplaceBackupAPIView(APIView):
 
 
 # ============ 5. DIRECT RESTORE (رفع ملف واستعادة مع دمج) ============
-class DirectUploadAndRestoreAPIView(APIView):
+# backup_api/views.py
 
+class DirectUploadAndRestoreAPIView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     parser_classes = [MultiPartParser]
     
@@ -187,30 +188,25 @@ class DirectUploadAndRestoreAPIView(APIView):
             uploaded_file = request.FILES['backup_file']
             include_media = request.data.get('include_media', 'true').lower() == 'true'
             
-            with tempfile.NamedTemporaryFile(delete=True, suffix='.tar.gz') as temp_file:
-                for chunk in uploaded_file.chunks():
-                    temp_file.write(chunk)
-                temp_file.flush()
-                
-                service = BackupService()
-                result = service.restore_from_stream(
-                    backup_stream=temp_file.name,
-                    mode='restore',
-                    include_media=include_media
-                )
-                
-                if result['success']:
-                    return Response({
-                        'message': result['message'],
-                        'mode': 'direct restore (merge)',
-                        'filename': uploaded_file.name,
-                        'status': 'success'
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({
-                        'message': 'Direct restore failed',
-                        'error': result['error']
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            service = BackupService()
+            result = service.restore_from_stream(
+                backup_stream=uploaded_file,  
+                mode='restore',
+                include_media=include_media
+            )
+            
+            if result['success']:
+                return Response({
+                    'message': result['message'],
+                    'mode': 'direct restore (merge)',
+                    'filename': uploaded_file.name,
+                    'status': 'success'
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    'message': 'Direct restore failed',
+                    'error': result['error']
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except Exception as e:
             return Response({
@@ -220,12 +216,7 @@ class DirectUploadAndRestoreAPIView(APIView):
 
 # ============ 6. DIRECT REPLACE (رفع ملف واستبدال كامل) ============
 class DirectUploadAndReplaceAPIView(APIView):
-    """
-    POST /api/backups/direct-replace/
-    رفع ملف النسخة الاحتياطية واستبدال كامل (بدون حفظ على السيرفر)
-    
-    ⚠️ تحذير: هذا الأمر سيحذف جميع البيانات الحالية!
-    """
+
     permission_classes = [IsAuthenticated, IsAdminUser]
     parser_classes = [MultiPartParser]
     
@@ -247,31 +238,26 @@ class DirectUploadAndReplaceAPIView(APIView):
                     'warning': '⚠️ This will DELETE ALL existing data permanently!'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            with tempfile.NamedTemporaryFile(delete=True, suffix='.tar.gz') as temp_file:
-                for chunk in uploaded_file.chunks():
-                    temp_file.write(chunk)
-                temp_file.flush()
-                
-                service = BackupService()
-                result = service.restore_from_stream(
-                    backup_stream=temp_file.name,
-                    mode='replace',
-                    include_media=include_media
-                )
-                
-                if result['success']:
-                    return Response({
-                        'message': result['message'],
-                        'mode': 'direct replace (full replacement)',
-                        'filename': uploaded_file.name,
-                        'status': 'success',
-                        'warning': '⚠️ All previous data has been permanently replaced!'
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({
-                        'message': 'Direct replace failed',
-                        'error': result['error']
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            service = BackupService()
+            result = service.restore_from_stream(
+                backup_stream=uploaded_file,  
+                mode='replace',
+                include_media=include_media
+            )
+            
+            if result['success']:
+                return Response({
+                    'message': result['message'],
+                    'mode': 'direct replace (full replacement)',
+                    'filename': uploaded_file.name,
+                    'status': 'success',
+                    'warning': 'All previous data has been permanently replaced!'
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    'message': 'Direct replace failed',
+                    'error': result['error']
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except Exception as e:
             return Response({

@@ -60,7 +60,16 @@ class BackupService:
             if app_names:
                 args.extend(app_names)
             
-            exclude_args = ['--exclude', 'auth.permission', '--exclude', 'contenttypes']
+            exclude_args = [
+                '--exclude', 'auth.permission',
+                '--exclude', 'contenttypes',
+                '--exclude', 'accounts', 
+                '--exclude', 'accounts.customuser',  
+                '--exclude', 'accounts.token', 
+                '--exclude', 'token_blacklist',  
+                '--exclude', 'authtoken', 
+            ]
+            
             if exclude:
                 for item in exclude:
                     exclude_args.extend(['--exclude', item])
@@ -82,7 +91,9 @@ class BackupService:
                 media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
                 
                 with tarfile.open(media_backup_file, 'w:gz') as tar:
-                    tar.add(self.media_dir, arcname='media')
+                    for item in self.media_dir.iterdir():
+                        if item.name != 'accounts':  
+                            tar.add(item, arcname=f'media/{item.name}')
                 
                 result['media_backup'] = str(media_backup_file)
             
@@ -179,11 +190,15 @@ class BackupService:
                 'error': str(e)
             }
     
+    # backup_api/services.py
+
     def restore_from_stream(self, backup_stream, mode='restore', include_media=True):
+    
+        temp_restore_dir = None
         try:
             temp_restore_dir = Path(tempfile.mkdtemp())
             
-            with tarfile.open(backup_stream, 'r:gz') as tar:
+            with tarfile.open(fileobj=backup_stream, mode='r:gz') as tar:
                 tar.extractall(temp_restore_dir)
             
             db_files = list(temp_restore_dir.glob('*.json')) + list(temp_restore_dir.glob('*.json.gz'))
@@ -222,15 +237,12 @@ class BackupService:
                 media_files = list(temp_restore_dir.glob('*_media.tar.gz'))
                 if media_files:
                     media_backup = media_files[0]
-                    
                     self.media_dir.mkdir(parents=True, exist_ok=True)
                     
                     with tarfile.open(media_backup, 'r:gz') as tar:
                         tar.extractall(settings.BASE_DIR)
                     
                     self.stdout_message("Media files restored successfully")
-            
-            shutil.rmtree(temp_restore_dir)
             
             return {
                 'success': True,
@@ -246,6 +258,9 @@ class BackupService:
                 'success': False,
                 'error': str(e)
             }
+        finally:
+            if temp_restore_dir and temp_restore_dir.exists():
+                shutil.rmtree(temp_restore_dir, ignore_errors=True)
     
     def clean_database_completely(self):
         from django.apps import apps
