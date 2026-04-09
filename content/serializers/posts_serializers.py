@@ -211,9 +211,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
-    
-    
-    
+     
     def validate_language(self, value):
         if not value:
             raise serializers.ValidationError("Language is required")
@@ -280,7 +278,6 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             post.tags.set(tags)
         
         return post
-    
     def update(self, instance, validated_data):
         tags = validated_data.pop('tags', None)
         
@@ -337,7 +334,6 @@ class PostsDetailSerializer(serializers.ModelSerializer):
                 'updated_at': obj.author.updated_at
             }
         return None
-    
     def get_category(self, obj):
         if obj.category and not obj.category.deleted_at:
             request = self.context.get('request')

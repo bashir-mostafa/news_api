@@ -8,12 +8,14 @@ venv/
 env/
 .venv/
 .env/
-
+/migrate_wp_to_sqlite.py
+content/management
 # Django stuff:
 *.log
 *.pot
 *.pyc
 *.sqlite3
+*.sql
 db.sqlite3
 media/
 staticfiles/
@@ -49,7 +51,7 @@ coverage.xml
 logs/
 *.log
 
-# Django migrations (يمكن استبعاد هذا إذا تريد الاحتفاظ بها في git)
+# Django migrations 
 */migrations/*.py[cod]
 !*/migrations/__init__.py
 

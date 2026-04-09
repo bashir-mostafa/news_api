@@ -377,7 +377,7 @@ class BackupService:
         
         for old_backup in backups[max_files:]:
             old_backup.unlink()
-            self.stdout_message(f"🗑️ Deleted old backup: {old_backup.name}")
+            self.stdout_message(f"Deleted old backup: {old_backup.name}")
     
     def stdout_message(self, message):
         print(f"[BackupService] {message}")
