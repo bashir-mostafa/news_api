@@ -1,5 +1,6 @@
 # content/views/posts_views.py
 from datetime import datetime
+import json
 from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
@@ -29,6 +30,23 @@ class PostListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['created_at', 'published_at', 'view_count', 'title', 'updated_at']
     ordering = ['-created_at']
     
+    def _parse_value(self, value):
+        if not value:
+            return []
+        
+        if isinstance(value, str) and value.strip().startswith('[') and value.strip().endswith(']'):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        
+        if isinstance(value, str) and ',' in value:
+            return value.split(',')
+        
+        return [value] if value else []
+    
     def get_queryset(self):
         queryset = Posts.objects.filter(deleted_at__isnull=True)
 
@@ -39,112 +57,250 @@ class PostListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 pass
 
-
+        # ===== 2. content_type  =====
         content_type = self.request.query_params.get('content_type')
+        content_type_or = self.request.query_params.get('content_type_or')
+        content_type_multi = self.request.query_params.get('content_type_multi')
+        
+        content_type_values = []
+        
         if content_type:
-            if ',' in content_type:
-                types_list = content_type.split(',')
-                queryset = queryset.filter(content_type__in=types_list)
+            content_type_values.extend(self._parse_value(content_type))
+        if content_type_or:
+            content_type_values.extend(self._parse_value(content_type_or))
+        if content_type_multi:
+            content_type_values.extend(self._parse_value(content_type_multi))
+        
+        content_type_array = self.request.query_params.getlist('content_type')
+        if len(content_type_array) > 1:
+            for val in content_type_array:
+                content_type_values.extend(self._parse_value(val))
+        
+        content_type_values = list(dict.fromkeys(content_type_values))
+        
+        if content_type_values:
+            if content_type_or is not None:
+                # OR logic
+                q_content_type = Q()
+                for ct in content_type_values:
+                    q_content_type |= Q(content_type=ct)
+                queryset = queryset.filter(q_content_type)
             else:
-                queryset = queryset.filter(content_type=content_type)
-        content_types_array = self.request.query_params.getlist('content_type')
-        if len(content_types_array) > 1:
-            queryset = queryset.filter(content_type__in=content_types_array)
+                # IN logic
+                if len(content_type_values) == 1:
+                    queryset = queryset.filter(content_type=content_type_values[0])
+                else:
+                    queryset = queryset.filter(content_type__in=content_type_values)
             
 
+        # ===== 3. language  =====
         language = self.request.query_params.get('language')
-        if language:
-            if ',' in language:
-                langs_list = language.split(',')
-                queryset = queryset.filter(language__in=langs_list)
-            else:
-                queryset = queryset.filter(language=language)
-        languages_array = self.request.query_params.getlist('language')
-        if len(languages_array) > 1:
-            queryset = queryset.filter(language__in=languages_array)
+        language_or = self.request.query_params.get('language_or')
+        language_multi = self.request.query_params.get('language_multi')
         
-        if not self.request.user.is_staff:
-            queryset = queryset.filter(
-                is_published=True,
-                published_at__lte=timezone.now()
-            )
-
-
-        title = self.request.query_params.get('title')
-        if title:
-            if ',' in title:
-                titles_list = title.split(',')
-                q_title = Q()
-                for t in titles_list:
-                    q_title |= Q(title__icontains=t)
-                queryset = queryset.filter(q_title)
+        language_values = []
+        
+        if language:
+            language_values.extend(self._parse_value(language))
+        if language_or:
+            language_values.extend(self._parse_value(language_or))
+        if language_multi:
+            language_values.extend(self._parse_value(language_multi))
+        
+        language_array = self.request.query_params.getlist('language')
+        if len(language_array) > 1:
+            for val in language_array:
+                language_values.extend(self._parse_value(val))
+        
+        language_values = list(dict.fromkeys(language_values))
+        
+        if language_values:
+            if language_or is not None:
+                q_language = Q()
+                for lang in language_values:
+                    q_language |= Q(language=lang)
+                queryset = queryset.filter(q_language)
             else:
-                queryset = queryset.filter(title__icontains=title)
-        titles_array = self.request.query_params.getlist('title')
-        if len(titles_array) > 1:
+                if len(language_values) == 1:
+                    queryset = queryset.filter(language=language_values[0])
+                else:
+                    queryset = queryset.filter(language__in=language_values)
+
+        # ===== 5. title  =====
+        title = self.request.query_params.get('title')
+        title_or = self.request.query_params.get('title_or')
+        title_multi = self.request.query_params.get('title_multi')
+        
+        title_values = []
+        
+        if title:
+            title_values.extend(self._parse_value(title))
+        if title_or:
+            title_values.extend(self._parse_value(title_or))
+        if title_multi:
+            title_values.extend(self._parse_value(title_multi))
+        
+        title_array = self.request.query_params.getlist('title')
+        if len(title_array) > 1:
+            for val in title_array:
+                title_values.extend(self._parse_value(val))
+        
+        title_values = list(dict.fromkeys(title_values))
+        
+        if title_values:
             q_title = Q()
-            for t in titles_array:
+            for t in title_values:
                 q_title |= Q(title__icontains=t)
             queryset = queryset.filter(q_title)
         
-
+        # ===== 6. excerpt  =====
         excerpt = self.request.query_params.get('excerpt')
+        excerpt_or = self.request.query_params.get('excerpt_or')
+        excerpt_multi = self.request.query_params.get('excerpt_multi')
+        
+        excerpt_values = []
+        
         if excerpt:
-            if ',' in excerpt:
-                excerpts_list = excerpt.split(',')
-                q_excerpt = Q()
-                for e in excerpts_list:
-                    q_excerpt |= Q(excerpt__icontains=e)
-                queryset = queryset.filter(q_excerpt)
-            else:
-                queryset = queryset.filter(excerpt__icontains=excerpt)
-        excerpts_array = self.request.query_params.getlist('excerpt')
-        if len(excerpts_array) > 1:
+            excerpt_values.extend(self._parse_value(excerpt))
+        if excerpt_or:
+            excerpt_values.extend(self._parse_value(excerpt_or))
+        if excerpt_multi:
+            excerpt_values.extend(self._parse_value(excerpt_multi))
+        
+        excerpt_array = self.request.query_params.getlist('excerpt')
+        if len(excerpt_array) > 1:
+            for val in excerpt_array:
+                excerpt_values.extend(self._parse_value(val))
+        
+        excerpt_values = list(dict.fromkeys(excerpt_values))
+        
+        if excerpt_values:
             q_excerpt = Q()
-            for e in excerpts_array:
+            for e in excerpt_values:
                 q_excerpt |= Q(excerpt__icontains=e)
             queryset = queryset.filter(q_excerpt)
         
 
+        # ===== 7. category  =====
         category = self.request.query_params.get('category')
+        category_or = self.request.query_params.get('category_or')
+        category_multi = self.request.query_params.get('category_multi')
+        
+        category_values = []
+        
         if category:
-            if ',' in category:
-                categories_list = category.split(',')
-                queryset = queryset.filter(category_id__in=categories_list)
+            category_values.extend(self._parse_value(category))
+        if category_or:
+            category_values.extend(self._parse_value(category_or))
+        if category_multi:
+            category_values.extend(self._parse_value(category_multi))
+        
+        category_array = self.request.query_params.getlist('category')
+        if len(category_array) > 1:
+            for val in category_array:
+                category_values.extend(self._parse_value(val))
+        
+        category_values_int = []
+        for val in category_values:
+            try:
+                category_values_int.append(int(val))
+            except (ValueError, TypeError):
+                pass
+        
+        category_values_int = list(dict.fromkeys(category_values_int))
+        
+        if category_values_int:
+            if category_or is not None:
+                q_category = Q()
+                for cat in category_values_int:
+                    q_category |= Q(category_id=cat)
+                queryset = queryset.filter(q_category)
             else:
-                queryset = queryset.filter(category_id=category)
-        categories_array = self.request.query_params.getlist('category')
-        if len(categories_array) > 1:
-            queryset = queryset.filter(category_id__in=categories_array)
+                if len(category_values_int) == 1:
+                    queryset = queryset.filter(category_id=category_values_int[0])
+                else:
+                    queryset = queryset.filter(category_id__in=category_values_int)
         
 
+        # ===== 8. tags  =====
         tags = self.request.query_params.get('tags')
+        tags_or = self.request.query_params.get('tags_or')
+        tags_multi = self.request.query_params.get('tags_multi')
+        
+        tags_values = []
+        
         if tags:
-            if ',' in tags:
-                tags_list = tags.split(',')
-                queryset = queryset.filter(tags__id__in=tags_list).distinct()
-            else:
-                queryset = queryset.filter(tags__id=tags)
+            tags_values.extend(self._parse_value(tags))
+        if tags_or:
+            tags_values.extend(self._parse_value(tags_or))
+        if tags_multi:
+            tags_values.extend(self._parse_value(tags_multi))
+        
         tags_array = self.request.query_params.getlist('tags')
         if len(tags_array) > 1:
-            all_tags = []
-            for tag in tags_array:
-                if ',' in tag:
-                    all_tags.extend(tag.split(','))
-                else:
-                    all_tags.append(tag)
-            queryset = queryset.filter(tags__id__in=all_tags).distinct()
+            for val in tags_array:
+                tags_values.extend(self._parse_value(val))
         
-        author = self.request.query_params.get('author')
-        if author:
-            if ',' in author:
-                authors_list = author.split(',')
-                queryset = queryset.filter(author_id__in=authors_list)
+        tags_values_int = []
+        for val in tags_values:
+            try:
+                tags_values_int.append(int(val))
+            except (ValueError, TypeError):
+                pass
+        
+        tags_values_int = list(dict.fromkeys(tags_values_int))
+        
+        if tags_values_int:
+            if tags_or is not None:
+                q_tags = Q()
+                for tag in tags_values_int:
+                    q_tags |= Q(tags__id=tag)
+                queryset = queryset.filter(q_tags).distinct()
             else:
-                queryset = queryset.filter(author_id=author)
-        authors_array = self.request.query_params.getlist('author')
-        if len(authors_array) > 1:
-            queryset = queryset.filter(author_id__in=authors_array)
+                if len(tags_values_int) == 1:
+                    queryset = queryset.filter(tags__id=tags_values_int[0]).distinct()
+                else:
+                    queryset = queryset.filter(tags__id__in=tags_values_int).distinct()
+        
+        # ===== 9. author  =====
+        author = self.request.query_params.get('author')
+        author_or = self.request.query_params.get('author_or')
+        author_multi = self.request.query_params.get('author_multi')
+        
+        author_values = []
+        
+        if author:
+            author_values.extend(self._parse_value(author))
+        if author_or:
+            author_values.extend(self._parse_value(author_or))
+        if author_multi:
+            author_values.extend(self._parse_value(author_multi))
+        
+        author_array = self.request.query_params.getlist('author')
+        if len(author_array) > 1:
+            for val in author_array:
+                author_values.extend(self._parse_value(val))
+        
+        author_values_int = []
+        for val in author_values:
+            try:
+                author_values_int.append(int(val))
+            except (ValueError, TypeError):
+                pass
+        
+        author_values_int = list(dict.fromkeys(author_values_int))
+        
+        if author_values_int:
+            if author_or is not None:
+                q_author = Q()
+                for auth in author_values_int:
+                    q_author |= Q(author_id=auth)
+                queryset = queryset.filter(q_author)
+            else:
+                if len(author_values_int) == 1:
+                    queryset = queryset.filter(author_id=author_values_int[0])
+                else:
+                    queryset = queryset.filter(author_id__in=author_values_int)
         
         language = self.request.query_params.get('language')
         if language:
