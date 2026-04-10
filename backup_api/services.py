@@ -53,41 +53,51 @@ class BackupService:
                 db_backup_file = temp_backup_dir / f"{backup_name}.json"
                 f = open(db_backup_file, 'w', encoding='utf-8')
             
-            args = []
+            # ✅ الحل: تحديد التطبيقات التي نريد عمل Backup لها بشكل صريح
+            from django.apps import apps
+            
             if app_names:
-                args.extend(app_names)
+                # إذا حدد المستخدم تطبيقات معينة
+                backup_apps = app_names
+            else:
+                # ✅ جلب جميع التطبيقات ما عدا accounts والتطبيقات الداخلية
+                excluded_apps = ['accounts', 'django', 'rest_framework.authtoken', 'token_blacklist']
+                backup_apps = []
+                
+                for app_config in apps.get_app_configs():
+                    app_name = app_config.name
+                    # استبعاد التطبيقات التي لا نريدها
+                    skip = False
+                    for excluded in excluded_apps:
+                        if app_name == excluded or app_name.startswith('django.'):
+                            skip = True
+                            break
+                    if not skip and app_config.models:  # فقط التطبيقات التي لديها نماذج
+                        backup_apps.append(app_name)
             
-            # ✅ استبعاد جميع بيانات accounts نهائياً
-            exclude_args = [
-                '--exclude', 'auth.permission',
-                '--exclude', 'contenttypes',
-                '--exclude', 'accounts', 
-                '--exclude', 'accounts.customuser',  
-                '--exclude', 'accounts.token', 
-                '--exclude', 'token_blacklist',  
-                '--exclude', 'authtoken', 
-                '--exclude', 'sessions',
-                '--exclude', 'admin.logentry',
-            ]
+            print(f"[BackupService] Creating backup for apps: {backup_apps}")
             
-            if exclude:
-                for item in exclude:
-                    exclude_args.extend(['--exclude', item])
-            
+            # ✅ استدعاء dumpdata مع التطبيقات المحددة فقط (بدون exclude_args المعقدة)
             with f:
-                call_command(
-                    'dumpdata',
-                    *args,
-                    *exclude_args,
-                    indent=2,
-                    natural_foreign=True,
-                    natural_primary=True,
-                    stdout=f
-                )
+                if backup_apps:
+                    call_command(
+                        'dumpdata',
+                        *backup_apps,
+                        indent=2,
+                        natural_foreign=True,
+                        natural_primary=True,
+                        stdout=f
+                    )
+                else:
+                    # إذا لم نجد أي تطبيقات، نرجع خطأ
+                    return {
+                        'success': False,
+                        'error': 'No applications found to backup'
+                    }
             
             result['database_backup'] = str(db_backup_file)
             
-            # ✅ استبعاد مجلد accounts من media
+            # ✅ Backup للميديا (مع استبعاد مجلد accounts)
             if include_media and self.media_dir.exists():
                 media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
                 
@@ -95,6 +105,9 @@ class BackupService:
                     for item in self.media_dir.iterdir():
                         if item.name != 'accounts':  
                             tar.add(item, arcname=f'media/{item.name}')
+                            print(f"[BackupService] Added to media backup: {item.name}")
+                        else:
+                            print(f"[BackupService] Skipped accounts media folder")
                 
                 result['media_backup'] = str(media_backup_file)
             

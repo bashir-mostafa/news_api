@@ -1,7 +1,7 @@
 # backup_api/views.py
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from news_api.permission import IsAdmin
 from django.http import FileResponse, Http404
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
@@ -23,7 +23,7 @@ class ListBackupsAPIView(APIView):
     GET /api/backups/
     عرض قائمة النسخ الاحتياطية مع Pagination
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def get(self, request, *args, **kwargs):
         try:
@@ -57,7 +57,7 @@ class ListBackupsAPIView(APIView):
 # ============ 2. CREATE backup ============
 class CreateBackupAPIView(APIView):  
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def post(self, request, *args, **kwargs):
         try:
@@ -96,7 +96,7 @@ class CreateBackupAPIView(APIView):
 # ============ 3. RESTORE backup (من ملف موجود على السيرفر) ============
 class RestoreBackupAPIView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def post(self, request, *args, **kwargs):
         try:
@@ -131,7 +131,7 @@ class RestoreBackupAPIView(APIView):
 # ============ 4. REPLACE backup (من ملف موجود على السيرفر) ============
 class ReplaceBackupAPIView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def post(self, request, *args, **kwargs):
         try:
@@ -175,7 +175,7 @@ class ReplaceBackupAPIView(APIView):
 # backup_api/views.py
 
 class DirectUploadAndRestoreAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser]
     
     def post(self, request, *args, **kwargs):
@@ -217,7 +217,7 @@ class DirectUploadAndRestoreAPIView(APIView):
 # ============ 6. DIRECT REPLACE (رفع ملف واستبدال كامل) ============
 class DirectUploadAndReplaceAPIView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser]
     
     def post(self, request, *args, **kwargs):
@@ -267,7 +267,7 @@ class DirectUploadAndReplaceAPIView(APIView):
 
 # ============ 7. DELETE backup ============
 class DeleteBackupAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def delete(self, request, filename, *args, **kwargs):
         try:
@@ -293,7 +293,7 @@ class DeleteBackupAPIView(APIView):
 # ============ 8. DOWNLOAD backup ============
 class DownloadBackupAPIView(APIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def get(self, request, filename, *args, **kwargs):
         try:
