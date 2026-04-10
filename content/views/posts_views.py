@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from content.pagination import CompactPagination
 from content.models import Posts, ContentType, Language
+from django.db.models import Q
 from content.serializers import (
     PostsSerializer,
     PostsCreateUpdateSerializer,
@@ -37,35 +38,86 @@ class PostListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.exclude(id=int(id_ne))
             except ValueError:
                 pass
+
+
         content_type = self.request.query_params.get('content_type')
         if content_type:
-            queryset = queryset.filter(content_type=content_type)
-        
+            if ',' in content_type:
+                types_list = content_type.split(',')
+                queryset = queryset.filter(content_type__in=types_list)
+            else:
+                queryset = queryset.filter(content_type=content_type)
+        content_types_array = self.request.query_params.getlist('content_type')
+        if len(content_types_array) > 1:
+            queryset = queryset.filter(content_type__in=content_types_array)
+            
+
         language = self.request.query_params.get('language')
         if language:
-            queryset = queryset.filter(language=language)
+            if ',' in language:
+                langs_list = language.split(',')
+                queryset = queryset.filter(language__in=langs_list)
+            else:
+                queryset = queryset.filter(language=language)
+        languages_array = self.request.query_params.getlist('language')
+        if len(languages_array) > 1:
+            queryset = queryset.filter(language__in=languages_array)
         
         if not self.request.user.is_staff:
             queryset = queryset.filter(
                 is_published=True,
                 published_at__lte=timezone.now()
             )
+
+
         title = self.request.query_params.get('title')
         if title:
-            queryset = queryset.filter(title__icontains=title)
+            if ',' in title:
+                titles_list = title.split(',')
+                q_title = Q()
+                for t in titles_list:
+                    q_title |= Q(title__icontains=t)
+                queryset = queryset.filter(q_title)
+            else:
+                queryset = queryset.filter(title__icontains=title)
+        titles_array = self.request.query_params.getlist('title')
+        if len(titles_array) > 1:
+            q_title = Q()
+            for t in titles_array:
+                q_title |= Q(title__icontains=t)
+            queryset = queryset.filter(q_title)
         
+
         excerpt = self.request.query_params.get('excerpt')
         if excerpt:
-            queryset = queryset.filter(excerpt__icontains=excerpt)
+            if ',' in excerpt:
+                excerpts_list = excerpt.split(',')
+                q_excerpt = Q()
+                for e in excerpts_list:
+                    q_excerpt |= Q(excerpt__icontains=e)
+                queryset = queryset.filter(q_excerpt)
+            else:
+                queryset = queryset.filter(excerpt__icontains=excerpt)
+        excerpts_array = self.request.query_params.getlist('excerpt')
+        if len(excerpts_array) > 1:
+            q_excerpt = Q()
+            for e in excerpts_array:
+                q_excerpt |= Q(excerpt__icontains=e)
+            queryset = queryset.filter(q_excerpt)
         
-        content_type = self.request.query_params.get('content_type')
-        if content_type:
-            queryset = queryset.filter(content_type=content_type)
-        
+
         category = self.request.query_params.get('category')
         if category:
-            queryset = queryset.filter(category_id=category)
+            if ',' in category:
+                categories_list = category.split(',')
+                queryset = queryset.filter(category_id__in=categories_list)
+            else:
+                queryset = queryset.filter(category_id=category)
+        categories_array = self.request.query_params.getlist('category')
+        if len(categories_array) > 1:
+            queryset = queryset.filter(category_id__in=categories_array)
         
+
         tags = self.request.query_params.get('tags')
         if tags:
             if ',' in tags:
@@ -73,10 +125,26 @@ class PostListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(tags__id__in=tags_list).distinct()
             else:
                 queryset = queryset.filter(tags__id=tags)
+        tags_array = self.request.query_params.getlist('tags')
+        if len(tags_array) > 1:
+            all_tags = []
+            for tag in tags_array:
+                if ',' in tag:
+                    all_tags.extend(tag.split(','))
+                else:
+                    all_tags.append(tag)
+            queryset = queryset.filter(tags__id__in=all_tags).distinct()
         
         author = self.request.query_params.get('author')
         if author:
-            queryset = queryset.filter(author_id=author)
+            if ',' in author:
+                authors_list = author.split(',')
+                queryset = queryset.filter(author_id__in=authors_list)
+            else:
+                queryset = queryset.filter(author_id=author)
+        authors_array = self.request.query_params.getlist('author')
+        if len(authors_array) > 1:
+            queryset = queryset.filter(author_id__in=authors_array)
         
         language = self.request.query_params.get('language')
         if language:
