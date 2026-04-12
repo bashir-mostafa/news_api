@@ -1,12 +1,11 @@
 from django.contrib.auth import authenticate
-from django.middleware.csrf import rotate_token
+from django.middleware.csrf import get_token
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.jwt import set_token_cookies
+from accounts.jwt import set_token_cookies, delete_token_cookies
 from accounts.serializers import LoginSerializer
 
 
@@ -18,7 +17,7 @@ class LoginAPIView(APIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         
-        if not serializer.is_valid()  :
+        if not serializer.is_valid():
             errors = serializer.errors
             
             if 'username' and 'password' in errors:
@@ -50,7 +49,7 @@ class LoginAPIView(APIView):
         refresh_token = str(refresh)
 
         response = Response({
-            "message": "login successfuly",
+            "message": "login successfully",
             "data": {
                 "access_token": access_token,
                 "user": {
@@ -64,7 +63,17 @@ class LoginAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
         set_token_cookies(response, access_token, refresh_token)
-
-        rotate_token(request)
-
+        
+        response.set_cookie(
+            'csrftoken',
+            get_token(request),
+            max_age=30*24*60*60,  
+            path='/',
+            httponly=False,
+            samesite='Lax',
+            secure=False,
+        )
+        
+        print(f"📦 Final cookies in response: {list(response.cookies.keys())}")
+        
         return response

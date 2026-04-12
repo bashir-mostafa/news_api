@@ -1,14 +1,13 @@
-from django.conf import settings
+from django.contrib.auth import authenticate
+from django.middleware.csrf import get_token
 from rest_framework import status
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
-from rest_framework_simplejwt.tokens import Token
 
-from accounts.jwt import delete_token_cookies
+from accounts.jwt import set_token_cookies, delete_token_cookies
 
 
 class LogoutAPIView(APIView):
@@ -16,22 +15,21 @@ class LogoutAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
-        serializer = self.serializer_class(data={"refresh": self.get_refresh_token_from_cookie()})
-
-        try:
-            serializer.is_valid(raise_exception=True)
-        except TokenError as e:
-            raise InvalidToken(e.args[0]) from e
-
-        response = Response({"message": "logout successfuly"}, status=status.HTTP_200_OK)
-
+        refresh_token = self.get_refresh_token_from_cookie()
+        
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception as e:
+                print(f"Error blacklisting token: {e}")
+        
+        response = Response({"message": "logout successfully"}, status=status.HTTP_200_OK)
         delete_token_cookies(response)
-
+        
+        response.delete_cookie('csrftoken', path='/')
+        
         return response
 
-    def get_refresh_token_from_cookie(self) -> Token:
-        refresh = self.request.COOKIES.get(settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"])
-        if not refresh:
-            raise PermissionDenied
-
-        return refresh
+    def get_refresh_token_from_cookie(self):
+        return self.request.COOKIES.get('refresh_token')

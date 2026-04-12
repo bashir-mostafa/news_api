@@ -125,7 +125,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SECURE": False,
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SAMESITE": "Lax",
-    "AUTH_COOKIE_REFRESH_PATH": "/accounts/auth/",
+    "AUTH_COOKIE_REFRESH_PATH": "/",
     "AUTH_COOKIE_USE_CSRF": True,
 }
 
