@@ -16,7 +16,7 @@ class ContentType(models.TextChoices):
     OPINION_ARTICLE = 'opinion_article'
     FILES = 'files'
 
-    
+
 class Language(models.TextChoices):
     AR = 'ar'
     KU = 'ku'
@@ -247,7 +247,7 @@ class Posts(models.Model):
     content_type = models.CharField(
         max_length=20,
         choices=ContentType.choices,
-        default=ContentType.TEXT,
+        default=ContentType.INFOGRAPHIC,
         verbose_name="نوع المحتوى",
         db_index=True
     )
