@@ -1,7 +1,7 @@
 # content/views/surveys_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,12 +17,8 @@ from content.serializers import (
 
 # ============ LIST & CREATE ============
 class SurveyListCreateView(generics.ListCreateAPIView):
-    """
-    عرض قائمة الاستبيانات وإنشاء استبيان جديد
-    GET: /api/surveys/
-    POST: /api/surveys/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'post', 'is_active']
     pagination_class = CompactPagination
@@ -33,17 +29,15 @@ class SurveyListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Surveys.objects.filter(deleted_at__isnull=True)
         
-        # تصفية حسب المقال
         post_id = self.request.query_params.get('post')
         if post_id:
             queryset = queryset.filter(post_id=post_id)
         
-        # تصفية حسب النشاط
         is_active = self.request.query_params.get('is_active')
         if is_active:
             queryset = queryset.filter(is_active=is_active)
         
-        # للمستخدمين غير المسجلين، عرض الاستبيانات النشطة فقط
+ 
         if not self.request.user.is_staff:
             queryset = queryset.filter(is_active=True)
         
@@ -104,14 +98,8 @@ class SurveyListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class SurveyRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    عرض وتحديث وحذف استبيان محدد
-    GET: /api/surveys/{id}/
-    PUT: /api/surveys/{id}/
-    PATCH: /api/surveys/{id}/
-    DELETE: /api/surveys/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -190,11 +178,8 @@ class SurveyRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class SurveyHardDeleteView(generics.DestroyAPIView):
-    """
-    حذف نهائي لاستبيان (للمشرفين فقط)
-    DELETE: /api/surveys/hard-delete/{id}/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = Surveys.objects.all()
     
@@ -215,11 +200,8 @@ class SurveyHardDeleteView(generics.DestroyAPIView):
 
 
 class SurveyBulkHardDeleteView(APIView):
-    """
-    حذف نهائي لمجموعة استبيانات (للمشرفين فقط)
-    DELETE: /api/surveys/bulk-hard-delete/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         survey_ids = request.data.get('ids', [])
@@ -253,11 +235,8 @@ class SurveyBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class SurveyRestoreView(APIView):
-    """
-    استعادة استبيان محذوف
-    POST: /api/surveys/restore/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -283,11 +262,8 @@ class SurveyRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class SurveyBulkDeleteView(APIView):
-    """
-    حذف ناعم لمجموعة استبيانات
-    DELETE: /api/surveys/bulk-delete/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         survey_ids = request.data.get('ids', [])
@@ -319,11 +295,8 @@ class SurveyBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class SurveyBulkRestoreView(APIView):
-    """
-    استعادة مجموعة استبيانات محذوفة
-    POST: /api/surveys/bulk-restore/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         survey_ids = request.data.get('ids', [])
@@ -355,11 +328,8 @@ class SurveyBulkRestoreView(APIView):
 
 # ============ GET DELETED SURVEYS ============
 class SurveyDeletedListView(generics.ListAPIView):
-    """
-    عرض قائمة الاستبيانات المحذوفة
-    GET: /api/surveys/deleted/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
     serializer_class = SurveysDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'is_active']
@@ -374,11 +344,8 @@ class SurveyDeletedListView(generics.ListAPIView):
 
 # ============ ACTIVATE / DEACTIVATE SURVEY ============
 class SurveyActivateView(APIView):
-    """
-    تفعيل استبيان
-    POST: /api/surveys/activate/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -404,7 +371,7 @@ class SurveyActivateView(APIView):
 
 class SurveyDeactivateView(APIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -430,11 +397,8 @@ class SurveyDeactivateView(APIView):
 
 # ============ GET SURVEYS BY POST ============
 class SurveysByPostView(generics.ListAPIView):
-    """
-    عرض استبيانات مقال محدد
-    GET: /api/surveys/by-post/{post_id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     serializer_class = SurveysListSerializer
     pagination_class = CompactPagination
     

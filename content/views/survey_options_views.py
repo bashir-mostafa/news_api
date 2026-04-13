@@ -1,7 +1,7 @@
 # content/views/survey_options_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,12 +17,8 @@ from content.serializers import (
 
 # ============ LIST & CREATE ============
 class SurveyOptionListCreateView(generics.ListCreateAPIView):
-    """
-    عرض قائمة خيارات الاستبيان وإنشاء خيار جديد
-    GET: /api/survey-options/
-    POST: /api/survey-options/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'survey', 'vote_count']
     pagination_class = CompactPagination
@@ -33,12 +29,10 @@ class SurveyOptionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = SurveyOptions.objects.filter(deleted_at__isnull=True)
         
-        # تصفية حسب الاستبيان
         survey_id = self.request.query_params.get('survey')
         if survey_id:
             queryset = queryset.filter(survey_id=survey_id)
         
-        # للمستخدمين غير المسجلين، عرض فقط خيارات الاستبيانات النشطة
         if not self.request.user.is_staff:
             queryset = queryset.filter(survey__is_active=True, survey__deleted_at__isnull=True)
         
@@ -99,14 +93,8 @@ class SurveyOptionListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class SurveyOptionRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    عرض وتحديث وحذف خيار استبيان محدد
-    GET: /api/survey-options/{id}/
-    PUT: /api/survey-options/{id}/
-    PATCH: /api/survey-options/{id}/
-    DELETE: /api/survey-options/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -185,11 +173,8 @@ class SurveyOptionRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView
 
 # ============ HARD DELETE ============
 class SurveyOptionHardDeleteView(generics.DestroyAPIView):
-    """
-    حذف نهائي لخيار استبيان (للمشرفين فقط)
-    DELETE: /api/survey-options/hard-delete/{id}/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = SurveyOptions.objects.all()
     
@@ -210,11 +195,8 @@ class SurveyOptionHardDeleteView(generics.DestroyAPIView):
 
 
 class SurveyOptionBulkHardDeleteView(APIView):
-    """
-    حذف نهائي لمجموعة خيارات استبيان (للمشرفين فقط)
-    DELETE: /api/survey-options/bulk-hard-delete/
-    """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         option_ids = request.data.get('ids', [])
@@ -248,11 +230,8 @@ class SurveyOptionBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class SurveyOptionRestoreView(APIView):
-    """
-    استعادة خيار استبيان محذوف
-    POST: /api/survey-options/restore/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -278,11 +257,8 @@ class SurveyOptionRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class SurveyOptionBulkDeleteView(APIView):
-    """
-    حذف ناعم لمجموعة خيارات استبيان
-    DELETE: /api/survey-options/bulk-delete/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         option_ids = request.data.get('ids', [])
@@ -314,11 +290,8 @@ class SurveyOptionBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class SurveyOptionBulkRestoreView(APIView):
-    """
-    استعادة مجموعة خيارات استبيان محذوفة
-    POST: /api/survey-options/bulk-restore/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         option_ids = request.data.get('ids', [])
@@ -350,11 +323,8 @@ class SurveyOptionBulkRestoreView(APIView):
 
 # ============ GET DELETED SURVEY OPTIONS ============
 class SurveyOptionDeletedListView(generics.ListAPIView):
-    """
-    عرض قائمة خيارات الاستبيان المحذوفة
-    GET: /api/survey-options/deleted/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
     serializer_class = SurveyOptionsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['survey']
@@ -369,11 +339,8 @@ class SurveyOptionDeletedListView(generics.ListAPIView):
 
 # ============ VOTE ON SURVEY OPTION ============
 class SurveyOptionVoteView(APIView):
-    """
-    التصويت على خيار استبيان
-    POST: /api/survey-options/vote/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [AllowAny]
     
     def post(self, request, id):
         try:
@@ -411,11 +378,7 @@ class SurveyOptionVoteView(APIView):
 
 # ============ GET OPTIONS BY SURVEY ============
 class SurveyOptionsBySurveyView(generics.ListAPIView):
-    """
-    عرض خيارات استبيان محدد
-    GET: /api/survey-options/by-survey/{survey_id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     serializer_class = SurveyOptionsListSerializer
     pagination_class = CompactPagination
     
@@ -426,7 +389,6 @@ class SurveyOptionsBySurveyView(generics.ListAPIView):
             deleted_at__isnull=True
         )
         
-        # للمستخدمين غير المسجلين، عرض فقط خيارات الاستبيانات النشطة
         if not self.request.user.is_staff:
             queryset = queryset.filter(survey__is_active=True)
         

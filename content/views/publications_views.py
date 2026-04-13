@@ -1,7 +1,7 @@
 # content/views/publications_views.py
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -22,7 +22,7 @@ class PublicationListCreateView(generics.ListCreateAPIView):
     GET: /api/publications/
     POST: /api/publications/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'post', 'publication_type', 'publish_year']
     pagination_class = CompactPagination
@@ -110,14 +110,7 @@ class PublicationListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class PublicationRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    عرض وتحديث وحذف نشرة محددة
-    GET: /api/publications/{id}/
-    PUT: /api/publications/{id}/
-    PATCH: /api/publications/{id}/
-    DELETE: /api/publications/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -199,7 +192,7 @@ class PublicationHardDeleteView(generics.DestroyAPIView):
     حذف نهائي لنشرة (للمشرفين فقط)
     DELETE: /api/publications/hard-delete/{id}/
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     queryset = Publications.objects.all()
     
@@ -224,7 +217,7 @@ class PublicationBulkHardDeleteView(APIView):
     حذف نهائي لمجموعة نشرات (للمشرفين فقط)
     DELETE: /api/publications/bulk-hard-delete/
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         publication_ids = request.data.get('ids', [])
@@ -258,11 +251,8 @@ class PublicationBulkHardDeleteView(APIView):
 
 # ============ RESTORE DELETED ============
 class PublicationRestoreView(APIView):
-    """
-    استعادة نشرة محذوفة
-    POST: /api/publications/restore/{id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -292,7 +282,7 @@ class PublicationBulkDeleteView(APIView):
     حذف ناعم لمجموعة نشرات
     DELETE: /api/publications/bulk-delete/
     """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         publication_ids = request.data.get('ids', [])
@@ -324,11 +314,8 @@ class PublicationBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class PublicationBulkRestoreView(APIView):
-    """
-    استعادة مجموعة نشرات محذوفة
-    POST: /api/publications/bulk-restore/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         publication_ids = request.data.get('ids', [])
@@ -360,11 +347,8 @@ class PublicationBulkRestoreView(APIView):
 
 # ============ GET DELETED PUBLICATIONS ============
 class PublicationDeletedListView(generics.ListAPIView):
-    """
-    عرض قائمة النشرات المحذوفة
-    GET: /api/publications/deleted/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdmin]
     serializer_class = PublicationsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['post', 'publication_type', 'publish_year']
@@ -384,11 +368,8 @@ class PublicationDeletedListView(generics.ListAPIView):
 
 # ============ GET PUBLICATIONS BY POST ============
 class PublicationsByPostView(generics.ListAPIView):
-    """
-    عرض نشرات مقال محدد
-    GET: /api/publications/by-post/{post_id}/
-    """
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    permission_classes = [IsAdminOrReadOnly]
     serializer_class = PublicationsListSerializer
     pagination_class = CompactPagination
     

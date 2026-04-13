@@ -3,16 +3,20 @@ import os
 from django.db import models
 
 class ContentType(models.TextChoices):
-    TEXT = 'text'
     INFOGRAPHIC = 'infographic'
     VIDEO = 'video'
     DOCUMENTARY = 'documentary'
     REPORT = 'report'
     SURVEY = 'survey'
-    PUBLICATION = 'publication'
     EVENT = 'event'
+    MAGAZINE = 'magazine'
+    BOOK = 'book'
+    STUDIES = 'studies'
+    ANALYTICS = 'analytics'
+    OPINION_ARTICLE = 'opinion_article'
+    FILES = 'files'
 
-
+    
 class Language(models.TextChoices):
     AR = 'ar'
     KU = 'ku'

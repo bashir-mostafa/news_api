@@ -1,6 +1,6 @@
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser
+from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,7 +17,7 @@ from django.utils import timezone
 # ============ LIST & CREATE ============
 class TagListCreateView(generics.ListCreateAPIView):
     queryset = Tags.objects.filter(deleted_at__isnull=True)
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = CompactPagination
     search_fields = ['name_ar', 'name_ku', 'name_en']
@@ -115,7 +115,7 @@ class TagListCreateView(generics.ListCreateAPIView):
 # ============ RETRIEVE, UPDATE, DELETE ============
 class TagRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'  
     
     def get_queryset(self):
@@ -189,7 +189,7 @@ class TagRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 # ============ HARD DELETE ============
 class TagHardDeleteView(generics.DestroyAPIView):
 
-    permission_classes = [IsAuthenticated, IsAdminUser] 
+    permission_classes = [IsAdmin] 
     lookup_field = 'id'  
 
     def get_queryset(self):
@@ -212,7 +212,7 @@ class TagHardDeleteView(generics.DestroyAPIView):
 
 
 class TagBulkHardDeleteView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         tag_ids = request.data.get('ids', [])
@@ -252,7 +252,7 @@ class TagBulkHardDeleteView(APIView):
 # ============ RESTORE DELETED ============
 class TagRestoreView(APIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def post(self, request, id):
         try:
@@ -279,7 +279,7 @@ class TagRestoreView(APIView):
 # ============ BULK DELETE ============
 class TagBulkDeleteView(APIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         tag_ids = request.data.get('tag_ids', [])
@@ -312,7 +312,7 @@ class TagBulkDeleteView(APIView):
 # ============ BULK RESTORE ============
 class TagBulkRestoreView(APIView):
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         tag_ids = request.data.get('tag_ids', [])
