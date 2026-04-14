@@ -3,7 +3,7 @@ from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from news_api.permission import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenBlacklistSerializer
 
@@ -12,7 +12,7 @@ from accounts.jwt import set_token_cookies, delete_token_cookies
 
 class LogoutAPIView(APIView):
     serializer_class = TokenBlacklistSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny)
 
     def post(self, request):
         refresh_token = self.get_refresh_token_from_cookie()
