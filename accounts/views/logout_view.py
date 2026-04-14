@@ -12,7 +12,6 @@ from accounts.jwt import set_token_cookies, delete_token_cookies
 
 class LogoutAPIView(APIView):
     serializer_class = TokenBlacklistSerializer
-    permission_classes = (AllowAny)
 
     def post(self, request):
         refresh_token = self.get_refresh_token_from_cookie()
