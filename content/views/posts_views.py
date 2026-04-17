@@ -404,7 +404,7 @@ class PostRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         queryset = Posts.objects.filter(deleted_at__isnull=True)
         
-        if not self.request.user.is_staff:
+        if not hasattr(self.request.user, 'role') or self.request.user.role != "admin":
             queryset = queryset.filter(
                 is_published=True,
                 published_at__lte=timezone.now()
@@ -685,7 +685,7 @@ class PostStatisticsView(APIView):
                 deleted_at__isnull=True,
                 is_published=True
             ).count()
-            content_type_stats[content_type[1]] = count
+            content_type_stats[content_type[0]] = count
         
         language_stats = {}
         for language in Language.choices:
