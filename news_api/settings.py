@@ -116,7 +116,7 @@ REST_FRAMEWORK = {
 
 # Simple JWT
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_COOKIE_ACCESS": "access_token",
@@ -136,8 +136,8 @@ BACKUP_CONFIG = {
     'ALLOWED_APPS': ['content'],  
     'EXCLUDED_APPS': ['accounts'],
     'AUTO_BACKUP_ENABLED': True,
-    'AUTO_BACKUP_HOUR': 9, 
-    'AUTO_BACKUP_MINUTE': 57, 
+    'AUTO_BACKUP_HOUR': 22, 
+    'AUTO_BACKUP_MINUTE': 0, 
     'AUTO_BACKUP_KEEP_DAYS': 1, 
 }
 MEDIA_URL = '/media/'

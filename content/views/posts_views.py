@@ -662,39 +662,72 @@ class PostDeletedListView(generics.ListAPIView):
 
 
 # ============ POST STATISTICS ============
+from django.db.models import Count, Sum, Q
+
 class PostStatisticsView(APIView):
     permission_classes = [IsAdminOrReadOnly]
     
+    def get_queryset(self):
+        queryset = Posts.objects.filter(deleted_at__isnull=True)
+        
+        created_at_gte = self.request.query_params.get('created_at_gte')
+        created_at_lte = self.request.query_params.get('created_at_lte')
+        
+        if created_at_gte:
+            try:
+                dt = datetime.strptime(created_at_gte, '%Y-%m-%d')
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__gte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+                
+        if created_at_lte:
+            try:
+                dt = datetime.strptime(created_at_lte, '%Y-%m-%d')
+                dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                aware_dt = timezone.make_aware(dt)
+                queryset = queryset.filter(created_at__lte=aware_dt)
+            except (ValueError, TypeError):
+                pass
+        
+        return queryset 
+    
     def get(self, request):
-        total_posts = Posts.objects.filter(deleted_at__isnull=True).count()
-        published_posts = Posts.objects.filter(
+        base_queryset = self.get_queryset()
+        
+        total_posts = base_queryset.count()
+        published_posts = base_queryset.filter(
             is_published=True,
-            deleted_at__isnull=True,
             published_at__lte=timezone.now()
         ).count()
-        draft_posts = Posts.objects.filter(
-            is_published=False,
-            deleted_at__isnull=True
-        ).count()
+        draft_posts = base_queryset.filter(is_published=False).count()
         deleted_posts = Posts.objects.filter(deleted_at__isnull=False).count()
         
-        content_type_stats = {}
-        for content_type in ContentType.choices:
-            count = Posts.objects.filter(
-                content_type=content_type[0],
-                deleted_at__isnull=True,
-                is_published=True
-            ).count()
-            content_type_stats[content_type[0]] = count
+        content_type_stats = dict(
+            base_queryset.filter(is_published=True)
+            .values('content_type')
+            .annotate(count=Count('id'))
+            .values_list('content_type', 'count')
+        )
         
-        language_stats = {}
-        for language in Language.choices:
-            count = Posts.objects.filter(
-                language=language[0],
-                deleted_at__isnull=True,
-                is_published=True
-            ).count()
-            language_stats[language[1]] = count
+        for content_type, _ in ContentType.choices:
+            if content_type not in content_type_stats:
+                content_type_stats[content_type] = 0
+        
+        language_stats = dict(
+            base_queryset.filter(is_published=True)
+            .values('language')
+            .annotate(count=Count('id'))
+            .values_list('language', 'count')
+        )
+        
+        language_names = dict(Language.choices)
+        language_stats_named = {
+            language_names.get(lang, lang): count 
+            for lang, count in language_stats.items()
+        }
+        
+        total_views = base_queryset.aggregate(total=Sum('view_count'))['total'] or 0
         
         return Response({
             "message": "post statistics retrieved successfully",
@@ -704,8 +737,8 @@ class PostStatisticsView(APIView):
                 "draft_posts": draft_posts,
                 "deleted_posts": deleted_posts,
                 "by_content_type": content_type_stats,
-                "by_language": language_stats,
-                "total_views": Posts.objects.aggregate(total=models.Sum('view_count'))['total'] or 0
+                "by_language": language_stats_named,
+                "total_views": total_views
             }
         })
 
