@@ -148,5 +148,13 @@ BACKUP_CONFIG = {
     'AUTO_BACKUP_MINUTE': 59, 
     'AUTO_BACKUP_KEEP_DAYS': 1, 
 }
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'nrls.net'
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'support@nrls.net'
+EMAIL_HOST_PASSWORD = '5L@wbcb23RN6dQA'  
+DEFAULT_FROM_EMAIL = 'support@nrls.net'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  

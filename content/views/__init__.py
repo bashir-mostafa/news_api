@@ -87,3 +87,4 @@ from .survey_options_views import (
 from .events_views import *
 from .publications_views import *
 from .media_files_views import *
+from .email_view import *

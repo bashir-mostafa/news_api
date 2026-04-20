@@ -60,3 +60,4 @@ from .events_serializers import (
 )
 from .publications_serializers import *
 from .media_files_serializers import *
+from .email_serializers import *

@@ -9,7 +9,8 @@ from content.views import (
     surveys_views,
     survey_options_views,
     publications_views,
-    media_files_views
+    media_files_views,
+    email_view,
 
     )
 
@@ -17,6 +18,7 @@ app_name = 'tags'
 
 urlpatterns = [
      # ============ POSTS URLs ============
+    path('email/', email_view.SendEmailView.as_view(), name='contact'),
     # List and Create
     path('posts/', posts_views.PostListCreateView.as_view(), name='post-list-create'),
     
