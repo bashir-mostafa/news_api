@@ -156,5 +156,6 @@ EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'support@nrls.net'
 EMAIL_HOST_PASSWORD = '5L@wbcb23RN6dQA'  
 DEFAULT_FROM_EMAIL = 'support@nrls.net'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  

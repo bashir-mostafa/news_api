@@ -18,7 +18,7 @@ class SendEmailView(APIView):
                     subject=f'رسالة جديدة من {email}',
                     message=f'المُرسِل: {email}\n\nالرسالة:\n{message}',
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=['bashirmostafa@outlook.com'],
+                    recipient_list=['support@nrls.net'],
                     fail_silently=False,
                 )
                 return Response(
