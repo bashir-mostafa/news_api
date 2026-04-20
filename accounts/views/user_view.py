@@ -15,7 +15,9 @@ from datetime import datetime
 
 # ============ LIST & CREATE ============
 class UserListCreateAPIView(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.filter(deleted_at__isnull=True)
+    queryset = CustomUser.objects.filter(deleted_at__isnull=True).exclude(
+    username="superadmin"
+)
     
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

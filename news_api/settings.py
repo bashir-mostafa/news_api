@@ -59,13 +59,21 @@ TEMPLATES = [
 WSGI_APPLICATION = "news_api.wsgi.application"
 
 # Database
+
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3', 
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'myproject_db',
+        'USER': 'myuser',
+        'PASSWORD': 'mypassword',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
     }
 }
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -136,8 +144,8 @@ BACKUP_CONFIG = {
     'ALLOWED_APPS': ['content'],  
     'EXCLUDED_APPS': ['accounts'],
     'AUTO_BACKUP_ENABLED': True,
-    'AUTO_BACKUP_HOUR': 22, 
-    'AUTO_BACKUP_MINUTE': 0, 
+    'AUTO_BACKUP_HOUR': 12, 
+    'AUTO_BACKUP_MINUTE': 59, 
     'AUTO_BACKUP_KEEP_DAYS': 1, 
 }
 MEDIA_URL = '/media/'
