@@ -302,7 +302,6 @@ class PostListCreateView(generics.ListCreateAPIView):
                 else:
                     queryset = queryset.filter(author_id__in=author_values_int)
         
-        language = self.request.query_params.get('language')
         if language:
             queryset = queryset.filter(language=language)
         

@@ -231,11 +231,8 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_published_at(self, value):
-        """التحقق من أن published_at لا يمكن أن يكون في الماضي"""
-        if value:
-            from django.utils import timezone
-            if value < timezone.now():
-                raise serializers.ValidationError("Published date cannot be in the past")
+        """السماح بأي تاريخ (قديم أو مستقبلي)"""
+        # تم إزالة التحقق الذي يمنع التاريخ الماضي
         return value
     
     def validate(self, data):
@@ -270,15 +267,22 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         tags = validated_data.pop('tags', [])
-        from django.utils import timezone
         
         published_at = validated_data.get('published_at')
+        from django.utils import timezone
+        now = timezone.now()
         
         if published_at:
-            validated_data['is_published'] = False 
+            if published_at <= now:
+                validated_data['is_published'] = True
+            else:
+                validated_data['is_published'] = False
         else:
             validated_data['is_published'] = True
-            validated_data['published_at'] = timezone.now()
+            validated_data['published_at'] = now
+        
+        if 'content' not in validated_data or not validated_data['content']:
+            validated_data['content'] = ''
         
         post = Posts.objects.create(**validated_data)
         
@@ -288,18 +292,19 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return post
     
     def update(self, instance, validated_data):
-        tags = validated_data.pop('tags', None)
-        published_at = validated_data.get('published_at')
         from django.utils import timezone
+        tags = validated_data.pop('tags', None)
+        now = timezone.now()
+        published_at = validated_data.get('published_at')
         
         if published_at is not None:
-            if published_at and published_at > timezone.now():
-                validated_data['is_published'] = False
-            elif published_at and published_at <= timezone.now():
+            if published_at <= now:
                 validated_data['is_published'] = True
             else:
+                validated_data['is_published'] = False
+        else:
+            if instance.published_at and instance.published_at <= now and not instance.is_published:
                 validated_data['is_published'] = True
-                validated_data['published_at'] = timezone.now()
         
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -309,6 +314,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             instance.tags.set(tags)
         
         return instance
+
 
 
 class PostsDetailSerializer(serializers.ModelSerializer):
