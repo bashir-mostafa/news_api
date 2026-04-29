@@ -59,14 +59,15 @@ class EventsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Invalid event type. Choices: {', '.join(valid_types)}")
         
         return value
-    
+    def validate_attendees_count(self, value):
+        if value is None:
+            return 0
+        if value < 0:
+            raise serializers.ValidationError("Attendees count cannot be negative")
+        return value
     def validate_event_date(self, value):
         if not value:
             raise serializers.ValidationError("Event date is required")
-        
-        # التحقق من أن تاريخ الحدث في المستقبل (اختياري)
-        if value < timezone.now():
-            raise serializers.ValidationError("Event date cannot be in the past")
         
         return value
     
@@ -82,16 +83,23 @@ class EventsCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_attendees_count(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Attendees count cannot be negative")
-        return value
+    def to_internal_value(self, data):
+      
+        if hasattr(data, 'copy'):
+            modified_data = data.copy()
+        else:
+            modified_data = dict(data)
+        
+        if 'attendees_count' in modified_data:
+            if modified_data['attendees_count'] == '' or modified_data['attendees_count'] is None:
+                modified_data['attendees_count'] = 0
+        
+        return super().to_internal_value(modified_data)
     
     def validate_post(self, value):
         if not value:
             raise serializers.ValidationError("Post is required")
         
-        # التحقق من وجود المقال وعدم حذفه
         if not Posts.objects.filter(id=value.id, deleted_at__isnull=True).exists():
             raise serializers.ValidationError("Post does not exist or has been deleted")
         
