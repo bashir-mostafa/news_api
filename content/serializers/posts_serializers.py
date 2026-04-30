@@ -1,12 +1,14 @@
 # content/serializers/posts_serializers.py
+
 from rest_framework import serializers
-from content.models import Posts, ContentType, Language, Tags, Authors, Categories
+from content.models import Posts, ContentType, Language, Tags, Authors, Categories  
 import re
 import json
 
+
 class PostsSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
+    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -20,8 +22,8 @@ class PostsSerializer(serializers.ModelSerializer):
             'original_post',
             'author',           
             'category',        
-            'content_type',
-            'content_type_display',
+            'content_type',  
+            'content_type_display',  
             'language',
             'language_display',
             'title',
@@ -40,7 +42,7 @@ class PostsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'view_count', 'created_at', 'updated_at']
         extra_kwargs = {
             'title': {'required': True, 'error_messages': {'required': 'Title is required'}},
-            'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
+            'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}}, 
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'excerpt': {'required': False, 'allow_null': True, 'allow_blank': True},
             'meta_title': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -152,7 +154,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             'author',
             'category',
             'tags',
-            'content_type',
+            'content_type', 
             'language',
             'title',
             'excerpt',
@@ -165,7 +167,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'title': {'required': True, 'error_messages': {'required': 'Title is required'}},
-            'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}},
+            'content_type': {'required': True, 'error_messages': {'required': 'Content type is required'}}, 
             'language': {'required': True, 'error_messages': {'required': 'Language is required'}},
             'category': {'required': True, 'error_messages': {'required': 'Category is required'}},
             'author': {'required': False},
@@ -209,6 +211,15 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Category is required")
         return value
     
+    def validate_content_type(self, value):  
+        if not value:
+            raise serializers.ValidationError("Content type is required")
+        
+        if not ContentType.objects.filter(id=value.id, deleted_at__isnull=True).exists():  
+            raise serializers.ValidationError("Invalid content type")
+        
+        return value
+    
     def validate_language(self, value):
         if not value:
             raise serializers.ValidationError("Language is required")
@@ -231,13 +242,11 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_published_at(self, value):
-        """السماح بأي تاريخ (قديم أو مستقبلي)"""
-        # تم إزالة التحقق الذي يمنع التاريخ الماضي
         return value
     
     def validate(self, data):
         if self.instance is None:
-            required_fields = ['title', 'category', 'content_type', 'language']
+            required_fields = ['title', 'category', 'content_type', 'language'] 
             for field in required_fields:
                 if field not in data:
                     raise serializers.ValidationError({field: f"{field.replace('_', ' ').title()} is required"})
@@ -316,10 +325,9 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 class PostsDetailSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
+    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -399,7 +407,6 @@ class PostsDetailSerializer(serializers.ModelSerializer):
         return None
     
     def get_translations(self, obj):
-        """إرجاع ترجمات المقال"""
         if obj.original_post:
             translations = Posts.objects.filter(original_post=obj.original_post, deleted_at__isnull=True)
         else:
@@ -433,7 +440,7 @@ class PostsDetailSerializer(serializers.ModelSerializer):
 
 class PostsListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
+    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -451,8 +458,8 @@ class PostsListSerializer(serializers.ModelSerializer):
             'author',       
             'category',     
             'tags',
-            'content_type',
-            'content_type_display',
+            'content_type', 
+            'content_type_display',  
             'language',
             'language_display',
             'view_count',
@@ -559,7 +566,7 @@ class PostsListSerializer(serializers.ModelSerializer):
 
 class PostsDeletedListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='get_content_type_display', read_only=True)
+    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True)  
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -576,8 +583,8 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
             'author',       
             'category',     
             'tags',
-            'content_type',
-            'content_type_display',
+            'content_type', 
+            'content_type_display',  
             'language',
             'language_display',
             'view_count',

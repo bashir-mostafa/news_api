@@ -11,6 +11,7 @@ from content.views import (
     publications_views,
     media_files_views,
     email_view,
+    content_type_views
 
     )
 
@@ -252,4 +253,11 @@ urlpatterns = [
     path('media-files/bulk-restore/', media_files_views.MediaFileBulkRestoreView.as_view(), name='media-file-bulk-restore'),
     path('media-files/bulk-hard-delete/', media_files_views.MediaFileBulkHardDeleteView.as_view(), name='media-file-bulk-hard-delete'),
     path('media-files/<int:id>/hard-delete/', media_files_views.MediaFileHardDeleteView.as_view(), name='media-file-hard-delete'),
+
+
+  # ============ CONTENT TYPES URLs ============
+    path('content-type/', content_type_views.ContentTypeListCreateView.as_view(), name='content-type-list-create'),
+    path('content-type/<int:id>/', content_type_views.ContentTypeRetrieveUpdateDeleteView.as_view(), name='content-type-detail'),
+    
+    path('content-type/<int:content_type_id>/categories/', categories_views.CategoriesByContentView.as_view(), name='categories-by-content-type'),
 ]

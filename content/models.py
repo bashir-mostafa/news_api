@@ -2,19 +2,19 @@ import os
 
 from django.db import models
 
-class ContentType(models.TextChoices):
-    INFOGRAPHIC = 'infographic'
-    VIDEO = 'video'
-    DOCUMENTARY = 'documentary'
-    REPORT = 'report'
-    SURVEY = 'survey'
-    EVENT = 'event'
-    MAGAZINE = 'magazine'
-    BOOK = 'book'
-    STUDIES = 'studies'
-    ANALYTICS = 'analytics'
-    OPINION_ARTICLE = 'opinion_article'
-    FILES = 'files'
+# class ContentType(models.TextChoices):
+#     INFOGRAPHIC = 'infographic'
+#     VIDEO = 'video'
+#     DOCUMENTARY = 'documentary'
+#     REPORT = 'report'
+#     SURVEY = 'survey'
+#     EVENT = 'event'
+#     MAGAZINE = 'magazine'
+#     BOOK = 'book'
+#     STUDIES = 'studies'
+#     ANALYTICS = 'analytics'
+#     OPINION_ARTICLE = 'opinion_article'
+#     FILES = 'files'
 
 
 class Language(models.TextChoices):
@@ -42,6 +42,16 @@ class MediaFileType(models.TextChoices):
     AUDIO = 'audio'
 
 
+class ContentType(models.Model):
+    name_ar = models.CharField(max_length=255)
+    name_en = models.CharField(max_length=255)
+    name_ku = models.CharField(max_length=255)
+    priority = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    def __str__(self):
+        return self.name_en
 class Tags(models.Model):
     name_ar = models.CharField(
         max_length=255, 
@@ -124,7 +134,7 @@ class Authors(models.Model):
         verbose_name="تاريخ الحذف",
     )
     
-
+# many to many content type 
 class Categories(models.Model):
     slug = models.SlugField(
         max_length=255,
@@ -145,10 +155,11 @@ class Categories(models.Model):
         max_length=255,
         verbose_name="الاسم (إنجليزي)",
     )
-    description = models.TextField(
+    content_type = models.ForeignKey(
+        'ContentType',
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name="الوصف",
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -244,10 +255,12 @@ class Posts(models.Model):
         blank=True,
     )
     
-    content_type = models.CharField(
-        max_length=20,
-        choices=ContentType.choices,
-        default=ContentType.INFOGRAPHIC,
+    content_type = models.ForeignKey(
+        'ContentType',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
         verbose_name="نوع المحتوى",
         db_index=True
     )

@@ -3,10 +3,9 @@ from django.utils import timezone
 from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from content.pagination import CompactPagination
-from content.models import Categories
+from content.models import Categories, ContentType
 from content.serializers import (
     CategoriesSerializer,
     CategoriesCreateUpdateSerializer,
@@ -17,16 +16,30 @@ from news_api.permission import IsAdminOrReadOnly, IsAdmin
 
 # ============ LIST & CREATE ============
 class CategoryListCreateView(generics.ListCreateAPIView):
+    """
+    عرض قائمة التصنيفات وإنشاء تصنيف جديد
+    GET: /api/categories/
+    POST: /api/categories/
+    """
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = CompactPagination
     search_fields = ['name_ar', 'name_ku', 'name_en', 'description']
-    ordering_fields = ['created_at', 'name_ar', 'name_en', 'name_ku', 'slug']
-    ordering = ['name_ar']
+    ordering_fields = ['created_at', 'name_ar', 'name_en', 'name_ku', 'slug', 'content_type__priority']
+    ordering = ['content_type__priority', 'name_ar']  # ترتيب حسب الأولوية ثم الاسم
     
     def get_queryset(self):
-        queryset = Categories.objects.filter(deleted_at__isnull=True)
+        queryset = Categories.objects.filter(deleted_at__isnull=True).select_related('content_type')
         
+        # ===== فلترة حسب نوع المحتوى =====
+        content_type_id = self.request.query_params.get('content_type')
+        if content_type_id:
+            try:
+                queryset = queryset.filter(content_type_id=int(content_type_id))
+            except ValueError:
+                pass
+        
+        # ===== فلترة حسب التاريخ =====
         created_at_gte = self.request.query_params.get('createdAt_gte')
         created_at_lte = self.request.query_params.get('createdAt_lte')
         
@@ -47,6 +60,7 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             except (ValueError, TypeError):
                 pass
         
+        # ===== فلترة حسب الاسم =====
         name_ar = self.request.query_params.get('name_ar')
         name_en = self.request.query_params.get('name_en')
         name_ku = self.request.query_params.get('name_ku')
@@ -67,6 +81,11 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             return CategoriesListSerializer
         return CategoriesCreateUpdateSerializer
     
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+    
     def perform_create(self, serializer):
         serializer.save()
     
@@ -77,7 +96,7 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             self.perform_create(serializer)
             
             category = Categories.objects.get(id=serializer.instance.id)
-            detail_serializer = CategoriesDetailSerializer(category)
+            detail_serializer = CategoriesDetailSerializer(category, context={'request': request})
             
             return Response({
                 "message": "category created successfully",
@@ -88,6 +107,10 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             return Response({
                 "message": e.detail
             }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     def list(self, request, *args, **kwargs):
         try:
@@ -95,10 +118,10 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             page = self.paginate_queryset(queryset)
             
             if page is not None:
-                serializer = self.get_serializer(page, many=True)
+                serializer = self.get_serializer(page, many=True, context={'request': request})
                 return self.get_paginated_response(serializer.data)
             
-            serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(queryset, many=True, context={'request': request})
             return Response({
                 "message": "get all categories successfully",
                 "count": queryset.count(),
@@ -113,21 +136,33 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 
 # ============ RETRIEVE, UPDATE, DELETE ============
 class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    عرض وتحديث وحذف تصنيف معين
+    GET: /api/categories/{id}/
+    PUT: /api/categories/{id}/
+    PATCH: /api/categories/{id}/
+    DELETE: /api/categories/{id}/
+    """
     permission_classes = [IsAdminOrReadOnly]
     lookup_field = 'id'
     
     def get_queryset(self):
-        return Categories.objects.filter(deleted_at__isnull=True)
+        return Categories.objects.filter(deleted_at__isnull=True).select_related('content_type')
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return CategoriesCreateUpdateSerializer
         return CategoriesDetailSerializer
     
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+    
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            serializer = self.get_serializer(instance)
+            serializer = self.get_serializer(instance, context={'request': request})
             
             return Response({
                 "message": "get category details successfully",
@@ -148,7 +183,7 @@ class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
             self.perform_update(serializer)
             
             updated_instance = self.get_object()
-            detail_serializer = CategoriesDetailSerializer(updated_instance)
+            detail_serializer = CategoriesDetailSerializer(updated_instance, context={'request': request})
             
             return Response({
                 "message": "category updated successfully",
@@ -171,6 +206,13 @@ class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
+            
+            # التحقق من وجود مقالات مرتبطة قبل الحذف
+            if instance.posts.filter(deleted_at__isnull=True).exists():
+                return Response({
+                    "message": "لا يمكن حذف التصنيف لأنه يحتوي على مقالات"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             instance.deleted_at = timezone.now()
             instance.save()
             
@@ -186,7 +228,11 @@ class CategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
 # ============ HARD DELETE ============
 class CategoryHardDeleteView(generics.DestroyAPIView):
-    permission_classes = [IsAdminOrReadOnly]
+    """
+    حذف نهائي لتصنيف (للمشرفين فقط)
+    DELETE: /api/categories/hard-delete/{id}/
+    """
+    permission_classes = [IsAdmin]
     lookup_field = 'id'
     
     def get_queryset(self):
@@ -209,8 +255,11 @@ class CategoryHardDeleteView(generics.DestroyAPIView):
 
 
 class CategoryBulkHardDeleteView(APIView):
-
-    permission_classes = [IsAdminOrReadOnly]
+    """
+    حذف نهائي لعدة تصنيفات (للمشرفين فقط)
+    DELETE: /api/categories/bulk-hard-delete/
+    """
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         category_ids = request.data.get('ids', [])
@@ -246,10 +295,15 @@ class CategoryBulkHardDeleteView(APIView):
             "deleted_ids": found_ids,
             "deleted_names": category_names
         }, status=status.HTTP_200_OK)
-    
+
+
 # ============ RESTORE DELETED ============
 class CategoryRestoreView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
+    """
+    استعادة تصنيف محذوف
+    POST: /api/categories/restore/{id}/
+    """
+    permission_classes = [IsAdmin]
     
     def post(self, request, id):
         try:
@@ -257,7 +311,7 @@ class CategoryRestoreView(APIView):
             category.deleted_at = None
             category.save()
             
-            serializer = CategoriesDetailSerializer(category)
+            serializer = CategoriesDetailSerializer(category, context={'request': request})
             return Response({
                 "message": "category restored successfully",
                 "data": serializer.data
@@ -275,7 +329,11 @@ class CategoryRestoreView(APIView):
 
 # ============ BULK DELETE ============
 class CategoryBulkDeleteView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
+    """
+    حذف مؤقت لعدة تصنيفات
+    DELETE: /api/categories/bulk-delete/
+    """
+    permission_classes = [IsAdmin]
 
     def delete(self, request):
         category_ids = request.data.get('ids', [])
@@ -290,10 +348,20 @@ class CategoryBulkDeleteView(APIView):
                 "message": "category_ids must be a list"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        deleted_count = Categories.objects.filter(
+        # التحقق من وجود مقالات قبل الحذف
+        categories_to_delete = Categories.objects.filter(
             id__in=category_ids, 
             deleted_at__isnull=True
-        ).update(deleted_at=timezone.now())
+        )
+        
+        # التحقق من أن التصنيفات ليس بها مقالات
+        for category in categories_to_delete:
+            if category.posts.filter(deleted_at__isnull=True).exists():
+                return Response({
+                    "message": f"لا يمكن حذف التصنيف '{category.name_ar}' لأنه يحتوي على مقالات"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        deleted_count = categories_to_delete.update(deleted_at=timezone.now())
         
         if deleted_count == 0:
             return Response({
@@ -307,7 +375,11 @@ class CategoryBulkDeleteView(APIView):
 
 # ============ BULK RESTORE ============
 class CategoryBulkRestoreView(APIView):
-    permission_classes = [IsAdminOrReadOnly]
+    """
+    استعادة عدة تصنيفات محذوفة
+    POST: /api/categories/bulk-restore/
+    """
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         category_ids = request.data.get('ids', [])
@@ -335,3 +407,50 @@ class CategoryBulkRestoreView(APIView):
         return Response({
             "message": f"{restored_count} out of {len(category_ids)} categories restored successfully"
         }, status=status.HTTP_200_OK)
+
+
+# ============ CATEGORIES BY CONTENT TYPE ============
+class CategoriesByContentView(generics.ListAPIView):
+ 
+    permission_classes = [IsAdminOrReadOnly]
+    serializer_class = CategoriesListSerializer
+    pagination_class = CompactPagination
+    
+    def get_queryset(self):
+        content_type_id = self.kwargs.get('content_type_id')
+        return Categories.objects.filter(
+            content_type_id=content_type_id,
+            deleted_at__isnull=True
+        ).select_related('content_type')
+    
+    def list(self, request, *args, **kwargs):
+        try:
+            content_type_id = self.kwargs.get('content_type_id')
+            
+            if not ContentType.objects.filter(id=content_type_id, deleted_at__isnull=True).exists():
+                return Response({
+                    "message": "Content type not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            return super().list(request, *args, **kwargs)
+            
+        except Exception as e:
+            return Response({
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============ GET DELETED CATEGORIES ============
+class CategoryDeletedListView(generics.ListAPIView):
+    """
+    عرض التصنيفات المحذوفة
+    GET: /api/categories/deleted/
+    """
+    permission_classes = [IsAdmin]
+    serializer_class = CategoriesListSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ['name_ar', 'name_ku', 'name_en']
+    pagination_class = CompactPagination
+    
+    def get_queryset(self):
+        return Categories.objects.filter(deleted_at__isnull=False).select_related('content_type')

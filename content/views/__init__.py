@@ -88,3 +88,4 @@ from .events_views import *
 from .publications_views import *
 from .media_files_views import *
 from .email_view import *
+from .content_type_views import *

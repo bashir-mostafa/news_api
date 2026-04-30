@@ -1,4 +1,5 @@
 # content/views/posts_views.py
+
 from datetime import datetime
 import json
 from django.utils import timezone
@@ -6,11 +7,10 @@ from rest_framework import generics, status, filters, serializers
 from rest_framework.response import Response
 from news_api.permission import IsAdmin, IsAdminOrReadOnly, AllowAny
 from rest_framework.views import APIView
-from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from content.pagination import CompactPagination
-from content.models import Posts, ContentType, Language
+from content.models import Posts, ContentType, Language  # تم التعديل: PostContentType → ContentType
 from django.db.models import Q
 from content.serializers import (
     PostsSerializer,
@@ -22,7 +22,11 @@ from content.serializers import (
 
 # ============ LIST & CREATE ============
 class PostListCreateView(generics.ListCreateAPIView):
-
+    """
+    عرض قائمة المقالات وإنشاء مقال جديد
+    GET: /api/posts/
+    POST: /api/posts/
+    """
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = CompactPagination
@@ -57,10 +61,10 @@ class PostListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 pass
 
-        # ===== 2. content_type  =====
-        content_type = self.request.query_params.get('content_type')
-        content_type_or = self.request.query_params.get('content_type_or')
-        content_type_multi = self.request.query_params.get('content_type_multi')
+        # ===== 1. content_type (formerly post_content_type) =====
+        content_type = self.request.query_params.get('content_type')  # تم التعديل
+        content_type_or = self.request.query_params.get('content_type_or')  # تم التعديل
+        content_type_multi = self.request.query_params.get('content_type_multi')  # تم التعديل
         
         content_type_values = []
         
@@ -71,7 +75,7 @@ class PostListCreateView(generics.ListCreateAPIView):
         if content_type_multi:
             content_type_values.extend(self._parse_value(content_type_multi))
         
-        content_type_array = self.request.query_params.getlist('content_type')
+        content_type_array = self.request.query_params.getlist('content_type')  # تم التعديل
         if len(content_type_array) > 1:
             for val in content_type_array:
                 content_type_values.extend(self._parse_value(val))
@@ -79,21 +83,25 @@ class PostListCreateView(generics.ListCreateAPIView):
         content_type_values = list(dict.fromkeys(content_type_values))
         
         if content_type_values:
-            if content_type_or is not None:
-                # OR logic
-                q_content_type = Q()
-                for ct in content_type_values:
-                    q_content_type |= Q(content_type=ct)
-                queryset = queryset.filter(q_content_type)
-            else:
-                # IN logic
-                if len(content_type_values) == 1:
-                    queryset = queryset.filter(content_type=content_type_values[0])
+            # تحويل القيم إلى integers (IDs)
+            try:
+                type_ids = [int(x) for x in content_type_values if x]
+                if content_type_or is not None:
+                    # OR logic
+                    q_content_type = Q()
+                    for ct_id in type_ids:
+                        q_content_type |= Q(content_type_id=ct_id)  # تم التعديل
+                    queryset = queryset.filter(q_content_type)
                 else:
-                    queryset = queryset.filter(content_type__in=content_type_values)
-            
+                    # IN logic
+                    if len(type_ids) == 1:
+                        queryset = queryset.filter(content_type_id=type_ids[0])  # تم التعديل
+                    else:
+                        queryset = queryset.filter(content_type_id__in=type_ids)  # تم التعديل
+            except ValueError:
+                pass  # تجاهل القيم غير الرقمية
 
-        # ===== 3. language  =====
+        # ===== 2. language =====
         language = self.request.query_params.get('language')
         language_or = self.request.query_params.get('language_or')
         language_multi = self.request.query_params.get('language_multi')
@@ -126,7 +134,7 @@ class PostListCreateView(generics.ListCreateAPIView):
                 else:
                     queryset = queryset.filter(language__in=language_values)
 
-        # ===== 5. title  =====
+        # ===== 3. title =====
         title = self.request.query_params.get('title')
         title_or = self.request.query_params.get('title_or')
         title_multi = self.request.query_params.get('title_multi')
@@ -153,7 +161,7 @@ class PostListCreateView(generics.ListCreateAPIView):
                 q_title |= Q(title__icontains=t)
             queryset = queryset.filter(q_title)
         
-        # ===== 6. excerpt  =====
+        # ===== 4. excerpt =====
         excerpt = self.request.query_params.get('excerpt')
         excerpt_or = self.request.query_params.get('excerpt_or')
         excerpt_multi = self.request.query_params.get('excerpt_multi')
@@ -181,7 +189,7 @@ class PostListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(q_excerpt)
         
 
-        # ===== 7. category  =====
+        # ===== 5. category =====
         category = self.request.query_params.get('category')
         category_or = self.request.query_params.get('category_or')
         category_multi = self.request.query_params.get('category_multi')
@@ -222,7 +230,7 @@ class PostListCreateView(generics.ListCreateAPIView):
                     queryset = queryset.filter(category_id__in=category_values_int)
         
 
-        # ===== 8. tags  =====
+        # ===== 6. tags =====
         tags = self.request.query_params.get('tags')
         tags_or = self.request.query_params.get('tags_or')
         tags_multi = self.request.query_params.get('tags_multi')
@@ -262,7 +270,7 @@ class PostListCreateView(generics.ListCreateAPIView):
                 else:
                     queryset = queryset.filter(tags__id__in=tags_values_int).distinct()
         
-        # ===== 9. author  =====
+        # ===== 7. author =====
         author = self.request.query_params.get('author')
         author_or = self.request.query_params.get('author_or')
         author_multi = self.request.query_params.get('author_multi')
@@ -302,9 +310,6 @@ class PostListCreateView(generics.ListCreateAPIView):
                 else:
                     queryset = queryset.filter(author_id__in=author_values_int)
         
-        if language:
-            queryset = queryset.filter(language=language)
-        
         is_published = self.request.query_params.get('is_published')
         if is_published is not None:
             if is_published.lower() == 'true':
@@ -331,6 +336,7 @@ class PostListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(created_at__lte=aware_dt)
             except (ValueError, TypeError):
                 pass
+        
         return queryset
     
     def get_serializer_class(self):
@@ -417,7 +423,6 @@ class PostRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         return PostsDetailSerializer
     
     def get_serializer_context(self):
-        """تمرير الـ request إلى الـ serializer للصور"""
         context = super().get_serializer_context()
         context.update({"request": self.request})
         return context
@@ -514,7 +519,6 @@ class PostHardDeleteView(generics.DestroyAPIView):
 
 
 class PostBulkHardDeleteView(APIView):
-
     permission_classes = [IsAdmin]
 
     def delete(self, request):
@@ -645,7 +649,7 @@ class PostDeletedListView(generics.ListAPIView):
     permission_classes = [IsAdmin]
     serializer_class = PostsDeletedListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['content_type', 'language', 'author', 'category']
+    filterset_fields = ['content_type', 'language', 'author', 'category']  # تم التعديل: post_content_type → content_type
     search_fields = ['title', 'excerpt']
     ordering_fields = ['deleted_at', 'created_at']
     ordering = ['-deleted_at']
@@ -702,16 +706,27 @@ class PostStatisticsView(APIView):
         draft_posts = base_queryset.filter(is_published=False).count()
         deleted_posts = Posts.objects.filter(deleted_at__isnull=False).count()
         
+        # تم التعديل: post_content_type_id → content_type_id
         content_type_stats = dict(
             base_queryset.filter(is_published=True)
-            .values('content_type')
+            .values('content_type_id')  # تم التعديل
             .annotate(count=Count('id'))
-            .values_list('content_type', 'count')
+            .values_list('content_type_id', 'count')  # تم التعديل
         )
         
-        for content_type, _ in ContentType.choices:
-            if content_type not in content_type_stats:
-                content_type_stats[content_type] = 0
+        from content.models import ContentType  # تم التعديل: PostContentType → ContentType
+        all_content_types = ContentType.objects.filter(deleted_at__isnull=True)  # تم التعديل
+        content_type_names = {ct.id: ct.name_ar for ct in all_content_types}
+        
+        content_type_stats_named = {}
+        for ct_id, count in content_type_stats.items():
+            name = content_type_names.get(ct_id, f"Type {ct_id}")
+            content_type_stats_named[name] = count
+        
+        # إضافة الأنواع التي ليس لها مقالات
+        for ct in all_content_types:
+            if ct.name_ar not in content_type_stats_named:
+                content_type_stats_named[ct.name_ar] = 0
         
         language_stats = dict(
             base_queryset.filter(is_published=True)
@@ -735,7 +750,7 @@ class PostStatisticsView(APIView):
                 "published_posts": published_posts,
                 "draft_posts": draft_posts,
                 "deleted_posts": deleted_posts,
-                "by_content_type": content_type_stats,
+                "by_content_type": content_type_stats_named,
                 "by_language": language_stats_named,
                 "total_views": total_views
             }
@@ -797,7 +812,7 @@ class PostUnpublishView(APIView):
 
 # ============ INCREMENT VIEW COUNT ============
 class PostIncrementViewView(APIView):
-    permission_classes = [AllowAny]  # Allow anyone to increment view count
+    permission_classes = [AllowAny]
     
     def post(self, request, id):
         try:
