@@ -9,8 +9,8 @@ class ContentTypeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ContentType
-        fields = ['id', 'name_ar', 'name_ku', 'name_en', 'priority']
-        read_only_fields = ['id']
+        fields = ['id', 'name_ar', 'name_ku', 'name_en', 'priority', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class ContentTypeCreateUpdateSerializer(serializers.ModelSerializer):
@@ -19,6 +19,7 @@ class ContentTypeCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContentType  
         fields = ['id', 'name_ar', 'name_ku', 'name_en', 'priority']
+        read_only_fields = ['id', 'created_at', 'updated_at']
     
     def validate_name_ar(self, value):
         if not value or value.strip() == '':

@@ -305,3 +305,48 @@ class CategoriesByContentTypeView(generics.ListAPIView):
             content_type_id=content_type_id, 
             deleted_at__isnull=True
         ).select_related('content_type')  
+    
+class ContentTypeBulkDeleteView(APIView):
+    """
+    حذف مؤقت لعدة أنواع محتوى
+    DELETE: /api/content-types/bulk-delete/
+    """
+    permission_classes = [IsAdmin]
+    
+    def delete(self, request):
+        ids = request.data.get('ids', [])
+        
+        if not ids:
+            return Response({
+                "message": "الرجاء توفير ids"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not isinstance(ids, list):
+            return Response({
+                "message": "ids must be a list"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # التحقق من وجود تصنيفات مرتبطة
+        content_types_to_delete = ContentType.objects.filter(
+            id__in=ids, 
+            deleted_at__isnull=True
+        )
+        
+        # التحقق من أن أنواع المحتوى ليس بها تصنيفات
+        for ct in content_types_to_delete:
+            if Categories.objects.filter(content_type=ct, deleted_at__isnull=True).exists():
+                return Response({
+                    "message": f"لا يمكن حذف '{ct.name_ar}' لأنه يحتوي على تصنيفات"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        deleted_count = content_types_to_delete.update(deleted_at=timezone.now())
+        
+        if deleted_count == 0:
+            return Response({
+                "message": "لم يتم حذف أي نوع محتوى"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({
+            "message": f"تم حذف {deleted_count} نوع محتوى بنجاح",
+            "deleted_ids": ids
+        }, status=status.HTTP_200_OK)

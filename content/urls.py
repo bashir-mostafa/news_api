@@ -260,4 +260,5 @@ urlpatterns = [
     path('content-type/<int:id>/', content_type_views.ContentTypeRetrieveUpdateDeleteView.as_view(), name='content-type-detail'),
     
     path('content-type/<int:content_type_id>/categories/', categories_views.CategoriesByContentView.as_view(), name='categories-by-content-type'),
+    path('content-type/bulk-delete/', content_type_views.ContentTypeBulkDeleteView.as_view(), name='content-type-bulk-delete'),
 ]
