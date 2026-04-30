@@ -3,12 +3,14 @@
 from rest_framework import serializers
 from content.models import Posts, ContentType, Language, Tags, Authors, Categories  
 import re
+from .content_type_serializers import ContentTypeSerializer
+
 import json
 
 
 class PostsSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
+    content_type = ContentTypeSerializer(read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -23,7 +25,6 @@ class PostsSerializer(serializers.ModelSerializer):
             'author',           
             'category',        
             'content_type',  
-            'content_type_display',  
             'language',
             'language_display',
             'title',
@@ -326,7 +327,7 @@ class PostsCreateUpdateSerializer(serializers.ModelSerializer):
 
 class PostsDetailSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
+    content_type = ContentTypeSerializer(read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -438,7 +439,7 @@ class PostsDetailSerializer(serializers.ModelSerializer):
 
 class PostsListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True) 
+    content_type = ContentTypeSerializer(read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -457,7 +458,6 @@ class PostsListSerializer(serializers.ModelSerializer):
             'category',     
             'tags',
             'content_type', 
-            'content_type_display',  
             'language',
             'language_display',
             'view_count',
@@ -563,7 +563,7 @@ class PostsListSerializer(serializers.ModelSerializer):
 
 class PostsDeletedListSerializer(serializers.ModelSerializer):
     featured_image = serializers.SerializerMethodField()
-    content_type_display = serializers.CharField(source='content_type.name_ar', read_only=True)  
+    content_type = ContentTypeSerializer(read_only=True)
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     
     author = serializers.SerializerMethodField()
@@ -581,7 +581,6 @@ class PostsDeletedListSerializer(serializers.ModelSerializer):
             'category',     
             'tags',
             'content_type', 
-            'content_type_display',  
             'language',
             'language_display',
             'view_count',
