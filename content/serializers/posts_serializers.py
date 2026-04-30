@@ -87,7 +87,6 @@ class PostsSerializer(serializers.ModelSerializer):
                 'name_ar': obj.category.name_ar,
                 'name_ku': obj.category.name_ku,
                 'name_en': obj.category.name_en,
-                'description': obj.category.description,
                 'created_at': obj.category.created_at,
                 'updated_at': obj.category.updated_at
             }
@@ -378,7 +377,6 @@ class PostsDetailSerializer(serializers.ModelSerializer):
                 'name_ar': obj.category.name_ar,
                 'name_ku': obj.category.name_ku,
                 'name_en': obj.category.name_en,
-                'description': obj.category.description,
                 'created_at': obj.category.created_at,
                 'updated_at': obj.category.updated_at
             }
@@ -504,7 +502,6 @@ class PostsListSerializer(serializers.ModelSerializer):
                 'name_ar': obj.category.name_ar,
                 'name_ku': obj.category.name_ku,
                 'name_en': obj.category.name_en,
-                'description': obj.category.description,
                 'created_at': obj.category.created_at,
                 'updated_at': obj.category.updated_at
             }
