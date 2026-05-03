@@ -27,7 +27,7 @@ class BackupService:
         self.db_user = self.db_settings['USER']
         self.db_password = self.db_settings.get('PASSWORD', '')
         self.db_host = self.db_settings.get('HOST', 'localhost')
-        self.db_port = self.db_settings.get('PORT', '5432')
+        self.db_port = self.db_settings.get('PORT', '3306')  # MySQL default port
     
     def create_backup(self, app_names=None, compress=True, exclude=None, include_media=True):
         timestamp_iso = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
@@ -328,7 +328,7 @@ class BackupService:
                 shutil.rmtree(temp_restore_dir, ignore_errors=True)
     
     def clean_database_completely(self, preserve_accounts=True):
-   
+        """Clean database with MySQL support"""
         from django.apps import apps
         
         all_models = apps.get_models()
@@ -336,7 +336,37 @@ class BackupService:
         with connection.cursor() as cursor:
             db_engine = settings.DATABASES['default']['ENGINE']
             
-            if 'postgresql' in db_engine:
+            if 'mysql' in db_engine:
+                # MySQL specific cleanup
+                cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+                
+                # Get all tables
+                cursor.execute("""
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = DATABASE()
+                    AND table_name NOT IN ('django_migrations', 'django_content_type', 'auth_permission')
+                """)
+                tables = cursor.fetchall()
+                
+                for table in tables:
+                    table_name = table[0]
+                    if preserve_accounts and table_name.startswith('accounts_'):
+                        self.stdout_message(f"  Skipped (preserved): {table_name}")
+                        continue
+                    try:
+                        cursor.execute(f"TRUNCATE TABLE `{table_name}`;")
+                        self.stdout_message(f"  Truncated: {table_name}")
+                    except Exception as e:
+                        try:
+                            # If TRUNCATE fails due to foreign keys, try DELETE
+                            cursor.execute(f"DELETE FROM `{table_name}`;")
+                            self.stdout_message(f"  Deleted from: {table_name}")
+                        except Exception as e2:
+                            self.stdout_message(f"  Error cleaning {table_name}: {e2}")
+                
+                cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
+                
+            elif 'postgresql' in db_engine:
                 cursor.execute("SET CONSTRAINTS ALL DEFERRED;")
                 cursor.execute("""
                     SELECT tablename FROM pg_tables 
@@ -389,7 +419,34 @@ class BackupService:
                     except Exception as e:
                         self.stdout_message(f"  Error deleting from {model._meta.db_table}: {e}")
         
+        # Reset auto-increment counters for MySQL
+        if 'mysql' in db_engine:
+            self.reset_mysql_auto_increment(preserve_accounts)
+        
         self.stdout_message("Database cleaned completely (accounts preserved)")
+    
+    def reset_mysql_auto_increment(self, preserve_accounts=True):
+        """Reset auto-increment counters for MySQL tables"""
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = DATABASE()
+                    AND table_name NOT IN ('django_migrations', 'django_content_type', 'auth_permission')
+                """)
+                tables = cursor.fetchall()
+                
+                for table in tables:
+                    table_name = table[0]
+                    if preserve_accounts and table_name.startswith('accounts_'):
+                        continue
+                    try:
+                        cursor.execute(f"ALTER TABLE `{table_name}` AUTO_INCREMENT = 1;")
+                        self.stdout_message(f"  Reset auto-increment for: {table_name}")
+                    except Exception as e:
+                        self.stdout_message(f"  Error resetting auto-increment for {table_name}: {e}")
+        except Exception as e:
+            self.stdout_message(f"Error resetting auto-increment counters: {e}")
     
     def delete_backup(self, backup_filename):
         backup_file = self.backup_dir / backup_filename
@@ -474,3 +531,92 @@ class BackupService:
     
     def stdout_message(self, message):
         print(f"[BackupService] {message}")
+    
+    # Optional: Add MySQL-specific backup method using mysqldump
+    def create_mysql_dump_backup(self, include_media=True):
+        """Create a backup using mysqldump for MySQL databases"""
+        timestamp_file = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f"mysqldump_{timestamp_file}"
+        
+        temp_backup_dir = self.backup_dir / f"temp_{timestamp_file}"
+        temp_backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        result = {
+            'success': True,
+            'database_backup': None,
+            'media_backup': None,
+            'created_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        }
+        
+        try:
+            # Create MySQL dump
+            db_dump_file = temp_backup_dir / f"{backup_name}.sql"
+            
+            # Build mysqldump command
+            cmd = [
+                'mysqldump',
+                f'--host={self.db_host}',
+                f'--port={self.db_port}',
+                f'--user={self.db_user}',
+                f'--password={self.db_password}',
+                '--single-transaction',
+                '--routines',
+                '--triggers',
+                '--add-drop-table',
+                self.db_name
+            ]
+            
+            # Exclude accounts tables if needed
+            if True:  # Always exclude accounts tables
+                cmd.extend(['--ignore-table', f'{self.db_name}.accounts_user'])
+                cmd.extend(['--ignore-table', f'{self.db_name}.accounts_userprofile'])
+                # Add more accounts tables as needed
+            
+            with open(db_dump_file, 'w', encoding='utf-8') as f:
+                result_process = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+                if result_process.returncode != 0:
+                    raise Exception(f"mysqldump failed: {result_process.stderr}")
+            
+            result['database_backup'] = str(db_dump_file)
+            
+            # Compress the SQL dump
+            if db_dump_file.exists():
+                with open(db_dump_file, 'rb') as f_in:
+                    with gzip.open(f"{db_dump_file}.gz", 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                db_dump_file.unlink()
+                result['database_backup'] = f"{db_dump_file}.gz"
+            
+            # Handle media backup same as before
+            if include_media and self.media_dir.exists():
+                media_backup_file = temp_backup_dir / f"{backup_name}_media.tar.gz"
+                
+                with tarfile.open(media_backup_file, 'w:gz') as tar:
+                    for item in self.media_dir.iterdir():
+                        if item.name != 'accounts':
+                            tar.add(item, arcname=f'media/{item.name}')
+                
+                result['media_backup'] = str(media_backup_file)
+            
+            # Create final archive
+            final_backup_file = self.backup_dir / f"{backup_name}.tar.gz"
+            with tarfile.open(final_backup_file, 'w:gz') as tar:
+                tar.add(temp_backup_dir, arcname='')
+            
+            shutil.rmtree(temp_backup_dir)
+            
+            result['filename'] = final_backup_file.name
+            result['size'] = self.get_file_size(final_backup_file)
+            
+            self.cleanup_old_backups()
+            
+            return result
+            
+        except Exception as e:
+            if temp_backup_dir.exists():
+                shutil.rmtree(temp_backup_dir)
+            
+            return {
+                'success': False,
+                'error': str(e)
+            }
