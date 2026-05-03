@@ -1,468 +1,556 @@
 # content/management/commands/import_wordpress.py
+"""
+WordPress SQL Importer — نسخة مصلحة
+======================================
+المشاكل المحلولة:
+  الـ Parser الجديد يتتبّع حالة السلاسل، لا يوقف عند ; داخل محتوى المنشور
+  دعم multi-row INSERT
+  Resume بملف تتبّع خارجي بدون تعديل الموديل
+  --reset-tracker لإعادة الاستيراد من الصفر
+"""
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
-from django.core.files import File
 from content.models import (
     ContentType, Authors, Categories, Tags, Posts, Comments,
-    Language, MediaFiles
+    Language, MediaFiles,
 )
-import os
-import re
-import shutil
+import os, re, shutil, json
 from datetime import datetime
 from pathlib import Path
 
+
+# ══════════════════════════════════════════════════════════════════
+#  SQL PARSER  — يتتبّع حالة السلاسل، لا يوقف عند ; داخل القيم
+# ══════════════════════════════════════════════════════════════════
+
+def iter_insert_rows(content: str, table: str):
+    header_re = re.compile(
+        rf"INSERT\s+INTO\s+`?{re.escape(table)}`?\s",
+        re.IGNORECASE,
+    )
+    content_upper = content.upper()
+
+    for hdr in header_re.finditer(content):
+        vpos = content_upper.find("VALUES", hdr.end())
+        if vpos == -1:
+            continue
+        pos = vpos + 6
+        while pos < len(content) and content[pos] in " \t\n\r":
+            pos += 1
+
+        buf, in_str, esc = [], False, False
+        while pos < len(content):
+            ch = content[pos]
+            if esc:
+                buf.append(ch); esc = False
+            elif ch == "\\" and in_str:
+                buf.append(ch); esc = True
+            elif ch == "'" and not in_str:
+                in_str = True; buf.append(ch)
+            elif ch == "'" and in_str:
+                if pos + 1 < len(content) and content[pos + 1] == "'":
+                    buf.append("''"); pos += 2; continue
+                in_str = False; buf.append(ch)
+            elif ch == ";" and not in_str:
+                break
+            else:
+                buf.append(ch)
+            pos += 1
+
+        values_block = "".join(buf).strip()
+        for row_str in _split_rows(values_block):
+            row_str = row_str.strip()
+            if row_str.startswith("(") and row_str.endswith(")"):
+                row_str = row_str[1:-1]
+            yield _parse_values(row_str)
+
+
+def _split_rows(block: str):
+    rows, cur, depth, in_str, esc = [], [], 0, False, False
+    for ch in block:
+        if esc:
+            cur.append(ch); esc = False; continue
+        if ch == "\\" and in_str:
+            cur.append(ch); esc = True; continue
+        if ch == "'" and not in_str:
+            in_str = True; cur.append(ch); continue
+        if ch == "'" and in_str:
+            in_str = False; cur.append(ch); continue
+        if in_str:
+            cur.append(ch); continue
+        if ch == "(":
+            depth += 1; cur.append(ch); continue
+        if ch == ")":
+            depth -= 1
+            if depth == 0:
+                rows.append("".join(cur) + ")"); cur = []; continue
+            cur.append(ch); continue
+        cur.append(ch)
+    return rows
+
+
+def _parse_values(row_str: str):
+    vals, cur, in_str, esc = [], [], False, False
+    for ch in row_str:
+        if esc:
+            cur.append(ch); esc = False; continue
+        if ch == "\\" and in_str:
+            cur.append(ch); esc = True; continue
+        if ch == "'" and not in_str:
+            in_str = True; cur.append(ch); continue
+        if ch == "'" and in_str:
+            in_str = False; cur.append(ch); continue
+        if ch == "," and not in_str:
+            vals.append("".join(cur).strip()); cur = []; continue
+        cur.append(ch)
+    if cur:
+        vals.append("".join(cur).strip())
+    return [_clean(v) for v in vals]
+
+
+def _clean(val: str):
+    if not val or val.upper() == "NULL":
+        return None
+    if val.startswith("'") and val.endswith("'"):
+        val = val[1:-1]
+    return (val
+            .replace("\\'", "'").replace('\\"', '"')
+            .replace("\\n", "\n").replace("\\r", "\r")
+            .replace("\\t", "\t").strip())
+
+
+def _to_dt(val):
+    if not val:
+        return None
+    try:
+        return timezone.make_aware(datetime.strptime(str(val)[:19], "%Y-%m-%d %H:%M:%S"))
+    except Exception:
+        return None
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND
+# ══════════════════════════════════════════════════════════════════
+
 class Command(BaseCommand):
-    help = 'Import WordPress data with images'
-    
+    help = "Import WordPress SQL dumps — fixed parser, resumable, full rollback"
+    TRACKER_FILE = "wp_import_tracker.json"
+
     def add_arguments(self, parser):
-        parser.add_argument('--clear', action='store_true', help='Clear existing data')
-        parser.add_argument('--dry-run', action='store_true', help='Dry run')
-        parser.add_argument('--limit', type=int, default=0, help='Limit posts')
-        parser.add_argument('--media-dir', type=str, default='media', help='Media directory path')
-    
+        parser.add_argument("--sql-files", nargs="+",
+            default=["i5218891_wp4.sql", "i5218891_wp9.sql", "i7736595_wp1.sql"])
+        parser.add_argument("--clear", action="store_true")
+        parser.add_argument("--reset-tracker", action="store_true",
+            help="Delete resume tracker and start fresh")
+        parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--limit", type=int, default=0)
+        parser.add_argument("--media-dir", type=str, default="media")
+        parser.add_argument("--report", type=str, default="import_report.json")
+
     def handle(self, *args, **options):
-        clear_existing = options['clear']
-        dry_run = options['dry_run']
-        limit = options['limit']
-        media_dir = options['media_dir']
-        
-        self.stdout.write("\n" + "=" * 80)
-        self.stdout.write(self.style.SUCCESS("🚀 IMPORTING WORDPRESS DATA WITH IMAGES"))
-        self.stdout.write("=" * 80)
-        
-        if dry_run:
-            self.stdout.write(self.style.WARNING("⚠️  DRY RUN MODE - No data will be saved"))
-        
-        if clear_existing and not dry_run:
-            self.clear_existing_data()
-        
-        # استخراج جميع البيانات
-        all_data = self.extract_all_data_streaming()
-        
-        if not all_data['posts']:
-            self.stdout.write(self.style.ERROR("\n❌ No posts found!"))
+        self._sep()
+        self.stdout.write(self.style.SUCCESS("WORDPRESS IMPORT — FIXED PARSER"))
+        self._sep()
+
+        if options["dry_run"]:
+            self.stdout.write(self.style.WARNING("DRY-RUN — nothing will be written"))
+
+        if options["reset_tracker"] or options["clear"]:
+            self._delete_tracker()
+
+        raw = self._extract_all(options["sql_files"])
+
+        self.stdout.write(f"\nExtracted:")
+        self.stdout.write(f"  posts        : {len(raw['posts'])}")
+        self.stdout.write(f"  pages        : {sum(1 for p in raw['posts'] if p['post_type']=='page')}")
+        self.stdout.write(f"  users        : {len(raw['users'])}")
+        self.stdout.write(f"  terms        : {len(raw['terms'])}")
+        self.stdout.write(f"  attachments  : {len(raw['attachments'])}")
+        self.stdout.write(f"  post_images  : {len(raw['post_images'])}")
+        self.stdout.write(f"  comments     : {len(raw['comments'])}")
+
+        if options["dry_run"]:
+            self._save_report(raw, {}, options["report"])
             return
-        
-        self.stdout.write(f"\n📊 Summary:")
-        self.stdout.write(f"   Posts: {len(all_data['posts'])}")
-        self.stdout.write(f"   Images: {len(all_data['images'])}")
-        
-        if dry_run:
-            self.print_dry_run_summary(all_data)
-            return
-        
-        # استيراد البيانات مع الصور
-        with transaction.atomic():
-            self.import_content_types()
-            self.import_static_categories()
-            self.import_authors()
-            self.import_posts_with_images(all_data, limit, media_dir)
-        
-        self.print_final_summary()
-    
-    def extract_all_data_streaming(self):
-        """استخراج جميع البيانات (منشورات + صور)"""
-        
-        sql_files = ["i5218891_wp4.sql", "i5218891_wp9.sql", "i7736595_wp1.sql"]
-        all_data = {
-            'posts': [],
-            'images': [],
-            'post_images': {},  # post_id -> image_id
-            'attachments': {},  # attachment_id -> image_data
-        }
-        
+
+        if options["clear"]:
+            self._clear_db()
+
+        stats = {}
+        try:
+            with transaction.atomic():
+                stats = self._load_all(raw, options)
+        except Exception as exc:
+            self.stdout.write(self.style.ERROR(f"\nFATAL — full rollback: {exc}"))
+            raise
+
+        self._print_final(stats)
+        self._save_report(raw, stats, options["report"])
+
+    # ── EXTRACT ────────────────────────────────────────────────
+
+    def _extract_all(self, sql_files):
+        raw = {"posts": [], "users": {}, "terms": {},
+               "term_taxonomy": {}, "attachments": {},
+               "post_images": {}, "term_rels": {}, "comments": []}
+        seen_post_ids = set()
+
         for sql_file in sql_files:
             if not os.path.exists(sql_file):
+                self.stdout.write(self.style.WARNING(f"Not found: {sql_file}"))
                 continue
-            
-            file_size_mb = os.path.getsize(sql_file) / 1024 / 1024
-            self.stdout.write(f"\n📄 Reading: {sql_file} ({file_size_mb:.1f} MB)")
-            
-            data = self.extract_data_from_file(sql_file)
-            all_data['posts'].extend(data['posts'])
-            
-            # جمع معلومات الصور
-            for img_id, img_data in data['attachments'].items():
-                if img_id not in all_data['attachments']:
-                    all_data['attachments'][img_id] = img_data
-            
-            # جمع علاقات الصور بالمنشورات
-            for post_id, img_id in data['post_images'].items():
-                all_data['post_images'][post_id] = img_id
-            
-            self.stdout.write(f"   ✅ Posts: {len(data['posts'])}, Images: {len(data['attachments'])}")
-        
-        return all_data
-    
-    def extract_data_from_file(self, filepath):
-        """استخراج البيانات من ملف واحد"""
-        
-        data = {
-            'posts': [],
-            'attachments': {},
-            'post_images': {},
-        }
-        
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-        
-        # 1. استخراج wp_posts
-        post_pattern = r"INSERT INTO `wp_posts` \(.*?\) VALUES\s*\((.*?)\);"
-        matches = re.findall(post_pattern, content, re.IGNORECASE | re.DOTALL)
-        
-        for match in matches:
-            values = self.parse_row(match)
-            if len(values) >= 20:
-                post_type = self.clean_value(values[20]) if len(values) > 20 else 'post'
-                
-                # تخزين الصور المرفقة (attachments)
-                if post_type == 'attachment':
-                    attachment_id = self.clean_value(values[0])
-                    attachment_url = self.clean_value(values[3]) if len(values) > 3 else ''  # guid
-                    attachment_mime = self.clean_value(values[21]) if len(values) > 21 else ''
-                    parent_post = self.clean_value(values[17]) if len(values) > 17 else 0  # post_parent
-                    
-                    if attachment_id and attachment_url:
-                        data['attachments'][attachment_id] = {
-                            'id': attachment_id,
-                            'url': attachment_url,
-                            'mime_type': attachment_mime,
-                            'parent_post': parent_post,
-                        }
-                
-                # تخزين المنشورات العادية
-                elif post_type in ['post', 'page']:
-                    post = {
-                        'id': self.clean_value(values[0]),
-                        'author': self.clean_value(values[1]),
-                        'date': self.clean_value(values[2]),
-                        'content': self.clean_value(values[4]) if len(values) > 4 else '',
-                        'title': self.clean_value(values[5]) if len(values) > 5 else '',
-                        'excerpt': self.clean_value(values[6]) if len(values) > 6 else '',
-                        'status': self.clean_value(values[7]) if len(values) > 7 else 'publish',
-                        'post_type': post_type,
-                    }
-                    if post['title'] or post['content']:
-                        data['posts'].append(post)
-        
-        # 2. استخراج wp_postmeta (_thumbnail_id)
-        meta_pattern = r"INSERT INTO `wp_postmeta` \(.*?\) VALUES\s*\((.*?)\);"
-        matches = re.findall(meta_pattern, content, re.IGNORECASE | re.DOTALL)
-        
-        for match in matches:
-            values = self.parse_row(match)
-            if len(values) >= 4:
-                post_id = self.clean_value(values[1])
-                meta_key = self.clean_value(values[2])
-                meta_value = self.clean_value(values[3])
-                
-                if meta_key == '_thumbnail_id' and post_id and meta_value:
-                    data['post_images'][post_id] = meta_value
-        
-        return data
-    
-    def parse_row(self, row_str):
-        """تفكيك صف من القيم"""
-        values = []
-        current = ''
-        in_string = False
-        escape = False
-        
-        for char in row_str:
-            if escape:
-                current += char
-                escape = False
-            elif char == '\\':
-                escape = True
-                current += char
-            elif char == "'" and not in_string:
-                in_string = True
-                current += char
-            elif char == "'" and in_string:
-                in_string = False
-                current += char
-            elif char == ',' and not in_string:
-                values.append(current.strip())
-                current = ''
-            else:
-                current += char
-        
-        if current:
-            values.append(current.strip())
-        
-        return values
-    
-    def clean_value(self, val):
-        """تنظيف القيمة"""
-        if not val or val.upper() == 'NULL':
-            return None
-        if val.startswith("'") and val.endswith("'"):
-            val = val[1:-1]
-        val = val.replace("\\'", "'").replace('\\"', '"')
-        val = val.replace("\\n", "\n").replace("\\r", "\r")
-        return val.strip()
-    
-    def clear_existing_data(self):
-        """مسح البيانات الموجودة"""
-        self.stdout.write("\n🗑️  Clearing existing data...")
-        MediaFiles.objects.all().delete()
-        Comments.objects.all().delete()
-        Posts.objects.all().delete()
-        Tags.objects.all().delete()
-        Categories.objects.all().delete()
-        Authors.objects.all().delete()
-        ContentType.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS("   ✅ Cleared"))
-    
-    def import_content_types(self):
-        """إنشاء ContentType"""
-        self.stdout.write("\n📦 Creating content types...")
-        ct, _ = ContentType.objects.get_or_create(
-            name_en='General',
-            defaults={'name_ar': 'عام', 'name_ku': 'Giştî', 'priority': 1}
-        )
-        self.stdout.write(f"   ✅ Created: {ct.name_ar}")
-    
-    def import_static_categories(self):
-        """إنشاء التصنيفات الثابتة"""
-        self.stdout.write("\n📂 Creating static categories...")
-        
-        categories = [
-            'إنفوجرافيك', 'فيديو', 'وثائقي', 'تقرير', 'استبيان',
-            'حدث', 'مجلة', 'كتاب', 'دراسات', 'تحليلات', 'مقال رأي', 'ملفات'
-        ]
-        
-        default_ct = ContentType.objects.first()
-        created = 0
-        
-        for name in categories:
-            cat, c = Categories.objects.get_or_create(
-                slug=slugify(name)[:255],
-                defaults={
-                    'name_ar': name, 'name_ku': name, 'name_en': name,
-                    'content_type': default_ct
-                }
+            mb = os.path.getsize(sql_file) / 1_048_576
+            self.stdout.write(f"\nReading {sql_file}  ({mb:.1f} MB) ...")
+            content = Path(sql_file).read_text(encoding="utf-8", errors="ignore")
+
+            before = len(raw["posts"])
+            self._parse_posts(content, raw, seen_post_ids)
+            self._parse_users(content, raw)
+            self._parse_terms(content, raw)
+            self._parse_postmeta(content, raw)
+            self._parse_term_relationships(content, raw)
+            self._parse_comments(content, raw)
+            added = len(raw["posts"]) - before
+            self.stdout.write(
+                f"  +{added} posts/pages | {len(raw['users'])} users | "
+                f"{len(raw['terms'])} terms | {len(raw['attachments'])} attachments"
             )
-            if c:
-                created += 1
-                self.stdout.write(f"   ✅ {name}")
-        
-        self.stdout.write(f"   ✅ Created {created} categories")
-    
-    def import_authors(self):
-        """إنشاء مؤلف افتراضي"""
-        self.stdout.write("\n👤 Creating default author...")
-        author, _ = Authors.objects.get_or_create(
-            full_name='Default Author',
-            defaults={'slug': 'default-author'}
-        )
-        self.stdout.write(f"   ✅ {author.full_name}")
-    
-    def import_posts_with_images(self, all_data, limit, media_dir):
-        """استيراد المنشورات مع الصور"""
-        self.stdout.write("\n📝 Importing posts with images...")
-        
-        default_ct = ContentType.objects.first()
-        default_lang = Language.KU
-        default_author = Authors.objects.first()
-        
-        posts_to_import = all_data['posts'][:limit] if limit > 0 else all_data['posts']
-        
-        posts_created = 0
-        pages_created = 0
-        images_linked = 0
-        images_copied = 0
-        
-        # إنشاء قاموس المراسلات بين ID القديم والجديد
-        post_id_map = {}
-        
-        for post_data in posts_to_import:
-            is_page = (post_data.get('post_type') == 'page')
-            old_post_id = post_data.get('id')
-            
-            # تحويل التاريخ
-            published_at = None
-            if post_data.get('date'):
-                try:
-                    date_str = str(post_data['date'])
-                    if date_str and len(date_str) >= 19:
-                        naive_dt = datetime.strptime(date_str[:19], '%Y-%m-%d %H:%M:%S')
-                        published_at = timezone.make_aware(naive_dt)
-                except:
-                    pass
-            
-            title = (post_data.get('title') or 'Untitled')[:500]
-            
-            if Posts.objects.filter(title=title).exists():
+
+        for tt in raw["term_taxonomy"].values():
+            term = raw["terms"].get(tt["term_id"])
+            if term:
+                tt["name"] = term["name"]
+                tt["slug"] = term["slug"]
+        return raw
+
+    def _parse_posts(self, content, raw, seen_ids):
+        F = dict(id=0, author=1, date=2, content=4, title=5,
+                 excerpt=6, status=7, parent=17, guid=18,
+                 post_type=20, mime=21)
+        for row in iter_insert_rows(content, "wp_posts"):
+            if len(row) < 21:
                 continue
-            
+            g = lambda k: row[F[k]] if len(row) > F[k] else None
+            ptype = g("post_type") or "post"
+            wp_id = g("id")
+            if ptype == "attachment":
+                url = g("guid") or ""
+                if wp_id and url:
+                    raw["attachments"].setdefault(wp_id, {
+                        "id": wp_id, "url": url,
+                        "mime_type": g("mime"), "parent_post": g("parent"),
+                    })
+                continue
+            if ptype not in ("post", "page"):
+                continue
+            if not wp_id or wp_id in seen_ids:
+                continue
+            seen_ids.add(wp_id)
+            raw["posts"].append({
+                "wp_id": wp_id, "wp_author": g("author"), "date": g("date"),
+                "content": g("content") or "", "title": (g("title") or "").strip() or "Untitled",
+                "excerpt": g("excerpt") or "", "status": g("status") or "draft",
+                "post_type": ptype,
+            })
+
+    def _parse_users(self, content, raw):
+        for row in iter_insert_rows(content, "wp_users"):
+            if len(row) < 2:
+                continue
+            wp_id = row[0]
+            if wp_id and wp_id not in raw["users"]:
+                raw["users"][wp_id] = {
+                    "wp_id": wp_id, "login": row[1],
+                    "email": row[3] if len(row) > 3 else "",
+                    "display_name": row[4] if len(row) > 4 else row[1],
+                }
+
+    def _parse_terms(self, content, raw):
+        for row in iter_insert_rows(content, "wp_terms"):
+            if len(row) < 3:
+                continue
+            tid = row[0]
+            if tid and tid not in raw["terms"]:
+                raw["terms"][tid] = {"term_id": tid, "name": row[1] or "", "slug": row[2] or ""}
+        for row in iter_insert_rows(content, "wp_term_taxonomy"):
+            if len(row) < 3:
+                continue
+            tt_id, term_id, taxonomy = row[0], row[1], row[2]
+            if tt_id and taxonomy in ("category", "post_tag"):
+                raw["term_taxonomy"].setdefault(tt_id, {
+                    "tt_id": tt_id, "term_id": term_id,
+                    "taxonomy": taxonomy, "name": "", "slug": "",
+                })
+
+    def _parse_postmeta(self, content, raw):
+        for row in iter_insert_rows(content, "wp_postmeta"):
+            if len(row) < 4:
+                continue
+            post_id, meta_key, meta_value = row[1], row[2], row[3]
+            if meta_key == "_thumbnail_id" and post_id and meta_value:
+                raw["post_images"][post_id] = meta_value
+
+    def _parse_term_relationships(self, content, raw):
+        for row in iter_insert_rows(content, "wp_term_relationships"):
+            if len(row) < 2:
+                continue
+            post_id, tt_id = row[0], row[1]
+            if post_id and tt_id:
+                raw["term_rels"].setdefault(post_id, [])
+                if tt_id not in raw["term_rels"][post_id]:
+                    raw["term_rels"][post_id].append(tt_id)
+
+    def _parse_comments(self, content, raw):
+        seen = {c["wp_id"] for c in raw["comments"]}
+        for row in iter_insert_rows(content, "wp_comments"):
+            if len(row) < 8:
+                continue
+            cid = row[0]
+            if cid and cid not in seen:
+                seen.add(cid)
+                raw["comments"].append({
+                    "wp_id": cid, "wp_post_id": row[1],
+                    "author": row[2] or "Anonymous",
+                    "email": row[3] if len(row) > 3 else "",
+                    "content": row[6] if len(row) > 6 else "",
+                    "date": row[7] if len(row) > 7 else None,
+                    "approved": (row[11] if len(row) > 11 else "0") == "1",
+                })
+
+    # ── LOAD ───────────────────────────────────────────────────
+
+    def _load_all(self, raw, options):
+        stats = dict(posts=0, pages=0, skipped=0, authors=0,
+                     categories=0, tags=0, images_linked=0, comments=0)
+
+        tracker = self._load_tracker()
+        imported_wp_ids      = set(k for k in tracker if not k.startswith("__"))
+        imported_comment_ids = set(tracker.get("__comments__", []))
+
+        ct, _ = ContentType.objects.get_or_create(
+            name_en="General",
+            defaults={"name_ar": "عام", "name_ku": "Gishtî", "priority": 1},
+        )
+        author_map = self._load_authors(raw["users"], stats)
+        cat_map, tag_map = self._load_terms(raw["term_taxonomy"], ct, stats)
+
+        limit = options["limit"]
+        posts_raw = raw["posts"][:limit] if limit > 0 else raw["posts"]
+        post_map = {}
+
+        for pd in posts_raw:
+            wp_id = pd["wp_id"]
+            if wp_id in imported_wp_ids:
+                django_id = tracker.get(wp_id)
+                if django_id:
+                    try:
+                        post_map[wp_id] = Posts.objects.get(id=django_id)
+                    except Posts.DoesNotExist:
+                        pass
+                stats["skipped"] += 1
+                continue
+
+            author = author_map.get(pd["wp_author"]) or Authors.objects.first()
             try:
                 post = Posts.objects.create(
-                    title=title,
-                    content=post_data.get('content', ''),
-                    excerpt=post_data.get('excerpt', '')[:500] if post_data.get('excerpt') else None,
-                    published_at=published_at,
-                    is_published=(post_data.get('status') == 'publish'),
-                    language=default_lang,
-                    content_type=default_ct,
-                    author=default_author,
+                    title=pd["title"][:500],
+                    content=pd["content"],
+                    excerpt=(pd["excerpt"] or "")[:500] or None,
+                    published_at=_to_dt(pd["date"]),
+                    is_published=(pd["status"] == "publish"),
+                    language=Language.KU,
+                    content_type=ct,
+                    author=author,
                     view_count=0,
                 )
-                
-                # حفظ المراسلة
-                if old_post_id:
-                    post_id_map[old_post_id] = post.id
-                
-                if is_page:
-                    pages_created += 1
-                else:
-                    posts_created += 1
-                
-                # معالجة الصورة المميزة
-                featured_image_id = all_data['post_images'].get(old_post_id)
-                if featured_image_id and featured_image_id in all_data['attachments']:
-                    image_data = all_data['attachments'][featured_image_id]
-                    image_url = image_data.get('url', '')
-                    
-                    if image_url:
-                        # محاولة ربط الصورة
-                        linked = self.link_image_to_post(post, image_url, media_dir)
-                        if linked:
-                            images_linked += 1
-                            images_copied += linked
-                
-                total = posts_created + pages_created
-                if total % 50 == 0:
-                    self.stdout.write(f"   ... {total} imported, {images_linked} images")
-                    
-            except Exception as e:
-                self.stdout.write(f"   ⚠️  Error: {str(e)[:80]}")
-        
-        self.stdout.write(f"\n   ✅ Created {posts_created} posts, {pages_created} pages")
-        self.stdout.write(f"   ✅ Linked {images_linked} featured images")
-    
-    # content/management/commands/import_wordpress.py (جزء الصور المعدل)
+            except Exception as exc:
+                self.stdout.write(self.style.WARNING(f"  Post {wp_id}: {exc}"))
+                continue
 
-    def link_image_to_post(self, post, image_url, media_dir):
-        """ربط الصورة بالمنشور وحفظها في مجلد حسب التاريخ"""
+            post_map[wp_id] = post
+            tracker[wp_id] = post.id
+
+            if pd["post_type"] == "page":
+                stats["pages"] += 1
+            else:
+                stats["posts"] += 1
+
+            for tt_id in raw["term_rels"].get(wp_id, []):
+                tt = raw["term_taxonomy"].get(tt_id)
+                if not tt:
+                    continue
+                if tt["taxonomy"] == "category" and tt_id in cat_map:
+                    post.categories.add(cat_map[tt_id])
+                elif tt["taxonomy"] == "post_tag" and tt_id in tag_map:
+                    post.tags.add(tag_map[tt_id])
+
+            att_id = raw["post_images"].get(wp_id)
+            if att_id and att_id in raw["attachments"]:
+                linked = self._link_image(post, raw["attachments"][att_id]["url"], options["media_dir"])
+                stats["images_linked"] += linked
+
+            total = stats["posts"] + stats["pages"]
+            if total % 100 == 0:
+                self.stdout.write(f"  ... {total} imported")
+                self._save_tracker(tracker)
+
+        self._save_tracker(tracker)
+        self._load_comments(raw["comments"], post_map, imported_comment_ids, tracker, stats)
+        return stats
+
+    def _load_authors(self, users, stats):
+        author_map = {}
+        for wp_id, u in users.items():
+            name = (u["display_name"] or u["login"] or "Unknown").strip()[:200]
+            slug = slugify(name)[:255] or f"author-{wp_id}"
+            author, created = Authors.objects.get_or_create(
+                slug=slug, defaults={"full_name": name}
+            )
+            if created:
+                stats["authors"] += 1
+            author_map[wp_id] = author
+        Authors.objects.get_or_create(slug="default-author", defaults={"full_name": "Default Author"})
+        return author_map
+
+    def _load_terms(self, term_taxonomy, ct, stats):
+        cat_map, tag_map = {}, {}
+        for tt_id, tt in term_taxonomy.items():
+            name = (tt["name"] or "").strip()[:200]
+            slug = (tt["slug"] or slugify(name) or f"term-{tt_id}")[:255]
+            if not name:
+                continue
+            if tt["taxonomy"] == "category":
+                cat, created = Categories.objects.get_or_create(
+                    slug=slug,
+                    defaults={"name_ar": name, "name_ku": name, "name_en": name, "content_type": ct},
+                )
+                cat_map[tt_id] = cat
+                if created:
+                    stats["categories"] += 1
+            elif tt["taxonomy"] == "post_tag":
+                tag, created = Tags.objects.get_or_create(
+                    slug=slug,
+                    defaults={"name_ar": name, "name_ku": name, "name_en": name},
+                )
+                tag_map[tt_id] = tag
+                if created:
+                    stats["tags"] += 1
+        return cat_map, tag_map
+
+    def _link_image(self, post, image_url: str, media_dir: str) -> int:
         filename = os.path.basename(image_url)
         if not filename:
             return 0
-        
-        media_root = media_dir
-        
-        # تحديد التاريخ المستخدم لحفظ الصورة
-        # نستخدم تاريخ النشر إذا موجود، وإلا نستخدم التاريخ الحالي
-        if post.published_at:
-            year = str(post.published_at.year)
-            month = str(post.published_at.month).zfill(2)
-            day = str(post.published_at.day).zfill(2)
-        else:
-            now = datetime.now()
-            year = now.strftime('%Y')
-            month = now.strftime('%m')
-            day = now.strftime('%d')
-        
-        # مسارات محتملة للصورة المصدر
-        possible_paths = [
-            os.path.join(media_root, filename),
-            os.path.join(media_root, 'uploads', filename),
-            os.path.join(media_root, 'uploads', year, month, filename),
-            os.path.join(media_root, 'uploads', year, month, day, filename),
-            os.path.join(media_root, 'wp-content', 'uploads', year, month, filename),
-            os.path.join(media_root, 'wp-content', 'uploads', year, month, day, filename),
-            os.path.join(media_root, 'posts', filename),
-            os.path.join(media_root, 'posts', year, month, filename),
-            os.path.join(media_root, 'posts', year, month, day, filename),
-            os.path.join(media_root, 'media_files', filename),
-        ]
-        
-        # البحث في مجلدات السنوات المختلفة (2019-2026)
-        for yr in range(2019, 2027):
-            possible_paths.append(os.path.join(media_root, 'posts', str(yr), filename))
-            possible_paths.append(os.path.join(media_root, 'uploads', str(yr), filename))
+        dt = post.published_at or timezone.now()
+        year, month, day = str(dt.year), str(dt.month).zfill(2), str(dt.day).zfill(2)
+        candidates = [os.path.join(media_dir, filename)]
+        for yr in range(2010, 2027):
             for mo in range(1, 13):
-                month_str = str(mo).zfill(2)
-                possible_paths.append(os.path.join(media_root, 'posts', str(yr), month_str, filename))
-                possible_paths.append(os.path.join(media_root, 'uploads', str(yr), month_str, filename))
-        
-        # إزالة المسارات المكررة
-        possible_paths = list(dict.fromkeys(possible_paths))
-        
-        # البحث عن الصورة
-        for img_path in possible_paths:
-            if os.path.exists(img_path):
-                try:
-                    # إنشاء اسم ملف جديد
-                    ext = os.path.splitext(filename)[1]
-                    # استخدام ID المنشور والتاريخ لإنشاء اسم فريد
-                    safe_title = re.sub(r'[^a-zA-Z0-9]', '_', post.title[:30]) if post.title else 'post'
-                    new_filename = f"{year}{month}{day}_{post.id}_{safe_title}{ext}"
-                    
-                    # إنشاء المسار الهدف مع التاريخ
-                    target_dir = os.path.join(media_root, 'posts', year, month, day)
-                    os.makedirs(target_dir, exist_ok=True)
-                    
-                    new_file_path = os.path.join(target_dir, new_filename)
-                    
-                    # نسخ الصورة
-                    shutil.copy2(img_path, new_file_path)
-                    
-                    # حفظ المسار النسبي في قاعدة البيانات
-                    relative_path = os.path.join('posts', year, month, day, new_filename).replace('\\', '/')
-                    post.featured_image = relative_path
-                    post.save()
-                    
-                    self.stdout.write(f"      📸 Copied: {filename} -> {relative_path}")
-                    return 1
-                    
-                except Exception as e:
-                    self.stdout.write(f"      ⚠️  Copy error: {e}")
-                    return 0
-        
+                ms = str(mo).zfill(2)
+                for base in ("uploads", "posts", "wp-content/uploads"):
+                    candidates.append(os.path.join(media_dir, base, str(yr), ms, filename))
+        for src in dict.fromkeys(candidates):
+            if not os.path.exists(src):
+                continue
+            try:
+                ext = os.path.splitext(filename)[1]
+                safe = re.sub(r"[^a-zA-Z0-9]", "_", post.title[:30])
+                new_name = f"{year}{month}{day}_{post.id}_{safe}{ext}"
+                target = os.path.join(media_dir, "posts", year, month, day)
+                os.makedirs(target, exist_ok=True)
+                shutil.copy2(src, os.path.join(target, new_name))
+                post.featured_image = f"posts/{year}/{month}/{day}/{new_name}"
+                post.save(update_fields=["featured_image"])
+                return 1
+            except Exception as exc:
+                self.stdout.write(f"    Image error: {exc}")
+                return 0
         return 0
-    
-    def print_dry_run_summary(self, all_data):
-        """طباعة ملخص التجربة"""
-        self.stdout.write("\n" + "=" * 80)
-        self.stdout.write(self.style.WARNING("📊 DRY RUN SUMMARY"))
-        self.stdout.write("=" * 80)
-        
-        posts_count = sum(1 for p in all_data['posts'] if p.get('post_type') == 'post')
-        pages_count = sum(1 for p in all_data['posts'] if p.get('post_type') == 'page')
-        
-        self.stdout.write(f"   📝 Posts: {posts_count}")
-        self.stdout.write(f"   📄 Pages: {pages_count}")
-        self.stdout.write(f"   🖼️  Images in database: {len(all_data['attachments'])}")
-        self.stdout.write(f"   🔗 Posts with featured images: {len(all_data['post_images'])}")
-        self.stdout.write(f"   📂 Static categories: 12")
-        
-        # عرض عينة من الصور
-        if all_data['attachments']:
-            self.stdout.write(f"\n   📌 Sample images:")
-            for i, (img_id, img_data) in enumerate(list(all_data['attachments'].items())[:5]):
-                url = img_data.get('url', '')[:60]
-                self.stdout.write(f"      {i+1}. ID: {img_id} - {url}")
-    
-    def print_final_summary(self):
-        """طباعة الملخص النهائي"""
-        self.stdout.write("\n" + "=" * 80)
-        self.stdout.write(self.style.SUCCESS("✅ IMPORT COMPLETED"))
-        self.stdout.write("=" * 80)
-        
-        posts_count = Posts.objects.count()
-        posts_with_images = Posts.objects.filter(featured_image__isnull=False).count()
-        
-        self.stdout.write(f"   📝 Posts: {posts_count}")
-        self.stdout.write(f"   🖼️  Posts with images: {posts_with_images}")
-        self.stdout.write(f"   📂 Categories: {Categories.objects.count()}")
-        self.stdout.write(f"   📦 Content Types: {ContentType.objects.count()}")
-        
-        if posts_with_images > 0:
-            self.stdout.write(f"\n   ✅ Images successfully linked to {posts_with_images} posts")
-        
-        self.stdout.write("=" * 80)
+
+    def _load_comments(self, comments, post_map, imported_comment_ids, tracker, stats):
+        self.stdout.write(f"\nFound {len(comments)} comments in SQL ...")
+        done = list(imported_comment_ids)
+        first_err = False
+        for c in comments:
+            if c["wp_id"] in imported_comment_ids:
+                continue
+            post = post_map.get(c["wp_post_id"])
+            if not post:
+                continue
+            try:
+                Comments.objects.create(
+                    post=post,
+                    author_name=(c["author"] or "")[:200],
+                    author_email=(c["email"] or "")[:200],
+                    content=c["content"] or "",
+                    created_at=_to_dt(c["date"]),
+                    is_approved=c["approved"],
+                )
+                done.append(c["wp_id"])
+                stats["comments"] += 1
+            except Exception as exc:
+                if not first_err:
+                    self.stdout.write(self.style.WARNING(
+                        f"\n  Comments skipped — field mismatch: {exc}\n"
+                        f"  Share your Comments model to fix field names."
+                    ))
+                    first_err = True
+        tracker["__comments__"] = done
+        self._save_tracker(tracker)
+        if stats["comments"] == 0 and comments:
+            self.stdout.write("  Comments skipped (fix model fields if needed)")
+
+    # ── Helpers ────────────────────────────────────────────────
+
+    def _load_tracker(self):
+        try:
+            with open(self.TRACKER_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _save_tracker(self, tracker):
+        with open(self.TRACKER_FILE, "w", encoding="utf-8") as f:
+            json.dump(tracker, f, ensure_ascii=False, indent=2)
+
+    def _delete_tracker(self):
+        if os.path.exists(self.TRACKER_FILE):
+            os.remove(self.TRACKER_FILE)
+            self.stdout.write("Tracker file deleted — starting fresh")
+
+    def _clear_db(self):
+        self.stdout.write("\nClearing existing data ...")
+        for M in [Comments, MediaFiles, Posts, Tags, Categories, Authors, ContentType]:
+            M.objects.all().delete()
+        self.stdout.write(self.style.SUCCESS("  Done"))
+
+    def _sep(self):
+        self.stdout.write("=" * 60)
+
+    def _print_final(self, stats):
+        self._sep()
+        self.stdout.write(self.style.SUCCESS("IMPORT COMPLETED"))
+        self._sep()
+        for k, v in stats.items():
+            self.stdout.write(f"  {k:<20}: {v}")
+        self._sep()
+
+    def _save_report(self, raw, stats, path="import_report.json"):
+        report = {
+            "generated_at": timezone.now().isoformat(),
+            "extracted": {
+                "posts": len(raw["posts"]), "users": len(raw["users"]),
+                "terms": len(raw["terms"]), "attachments": len(raw["attachments"]),
+                "post_images": len(raw["post_images"]), "comments": len(raw["comments"]),
+            },
+            "imported": stats,
+        }
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+            self.stdout.write(f"\nReport saved to {path}")
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(f"Report error: {exc}"))

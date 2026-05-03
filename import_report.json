@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-05-03T11:17:47.828804+00:00",
+  "extracted": {
+    "posts": 152,
+    "users": 1,
+    "terms": 1,
+    "attachments": 14,
+    "post_images": 0,
+    "comments": 1
+  },
+  "imported": {
+    "posts": 146,
+    "pages": 0,
+    "skipped": 6,
+    "authors": 1,
+    "categories": 0,
+    "tags": 0,
+    "images_linked": 0,
+    "comments": 0
+  }
+}

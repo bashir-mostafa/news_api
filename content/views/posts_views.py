@@ -706,16 +706,15 @@ class PostStatisticsView(APIView):
         draft_posts = base_queryset.filter(is_published=False).count()
         deleted_posts = Posts.objects.filter(deleted_at__isnull=False).count()
         
-        # تم التعديل: post_content_type_id → content_type_id
         content_type_stats = dict(
             base_queryset.filter(is_published=True)
-            .values('content_type_id')  # تم التعديل
+            .values('content_type_id')  
             .annotate(count=Count('id'))
-            .values_list('content_type_id', 'count')  # تم التعديل
+            .values_list('content_type_id', 'count')  
         )
         
-        from content.models import ContentType  # تم التعديل: PostContentType → ContentType
-        all_content_types = ContentType.objects.filter(deleted_at__isnull=True)  # تم التعديل
+        from content.models import ContentType  
+        all_content_types = ContentType.objects.filter(deleted_at__isnull=True)  
         content_type_names = {ct.id: ct.name_ar for ct in all_content_types}
         
         content_type_stats_named = {}

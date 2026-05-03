@@ -74,6 +74,5 @@ class LoginAPIView(APIView):
             secure=False,
         )
         
-        print(f"📦 Final cookies in response: {list(response.cookies.keys())}")
         
         return response
